@@ -1,0 +1,38 @@
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - gocritic
+    - revive
+    - noctx
+    - bodyclose
+    - unparam
+
+linters-settings:
+  goimports:
+    local-prefixes: github.com/Elchi-dev/onyx
+  misspell:
+    locale: US
+  revive:
+    rules:
+      - name: exported
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters: [errcheck, unparam]
+    - path: cmd/onyx/main.go
+      linters: [godot]
+  max-issues-per-linter: 0
+  max-same-issues: 0

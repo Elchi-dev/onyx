@@ -1,0 +1,32 @@
+# nfpm.yaml — package metadata for building .deb/.rpm with nfpm
+# https://nfpm.goreleaser.com/configuration/
+name: onyx
+arch: amd64
+platform: linux
+version: "${ONYX_VERSION}"
+section: net
+priority: optional
+maintainer: Elchi-dev <elchi@example.com>
+description: |
+  Onyx is a modular reverse proxy with a live WebSocket dashboard.
+  It routes HTTP traffic by hostname, supports rate limiting, traffic
+  splitting, and a plugin API.
+homepage: https://github.com/Elchi-dev/onyx
+license: MIT
+
+contents:
+  - src: ./build/onyx-linux-amd64
+    dst: /usr/local/bin/onyx
+    file_info:
+      mode: 0755
+
+  - src: ./onyx.service
+    dst: /lib/systemd/system/onyx.service
+
+  - src: ./onyx.example.toml
+    dst: /etc/onyx/onyx.example.toml
+    type: config|noreplace
+
+scripts:
+  postinstall: ./scripts/pkg/postinstall.sh
+  preremove:   ./scripts/pkg/preremove.sh

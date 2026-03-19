@@ -1,0 +1,32 @@
+# ============================================================
+#  onyx.example.toml — Reference configuration
+#  Run `onyx setup` to generate onyx.toml automatically.
+# ============================================================
+
+[server]
+http_port  = 80
+https_port = 443          # HTTPS coming in v0.2.0
+data_dir   = "~/.config/onyx"
+
+[dashboard]
+enabled = true
+port    = 8080
+# Password is set via `onyx setup` and stored as a bcrypt hash in onyx.db.
+# It is never stored in this file.
+
+# ── Routes ───────────────────────────────────────────────────
+# Each [[routes]] block proxies one hostname → one backend.
+
+[[routes]]
+host    = "api.example.com"
+target  = "http://localhost:3000"
+enabled = true
+
+  [routes.rate_limit]
+  requests_per_second = 100.0
+  burst               = 50
+
+[[routes]]
+host    = "app.example.com"
+target  = "http://localhost:5173"
+enabled = true

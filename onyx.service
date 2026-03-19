@@ -1,0 +1,28 @@
+[Unit]
+Description=Onyx Reverse Proxy
+After=network-online.target
+Wants=network-online.target
+Documentation=https://github.com/Elchi-dev/onyx
+
+[Service]
+Type=simple
+User=onyx
+Group=onyx
+ExecStart=/usr/local/bin/onyx start --config /etc/onyx/onyx.toml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/etc/onyx
+PrivateTmp=true
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=onyx
+
+[Install]
+WantedBy=multi-user.target
