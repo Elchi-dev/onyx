@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -12,13 +14,13 @@ func newValidateCommand() *cobra.Command {
 	var configPath string
 
 	cmd := &cobra.Command{
-		Use:   "validate",
-		Short: "Validate the Onyx config file without starting",
+		Use:     "validate",
+		Short:   "Validate the Onyx config file without starting",
 		Example: "  onyx validate\n  onyx validate --config /etc/onyx/onyx.toml",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if configPath == "" {
 				var err error
-				configPath, err = findConfig()
+				configPath, err = findConfigPath()
 				if err != nil {
 					return err
 				}
@@ -46,4 +48,20 @@ func newValidateCommand() *cobra.Command {
 
 	cmd.Flags().StringVarP(&configPath, "config", "c", "", "Path to onyx.toml")
 	return cmd
+}
+
+// findConfigPath searches standard locations for onyx.toml.
+// Duplicated from internal/app intentionally to keep the cli package
+// free of an app dependency and avoid an import cycle.
+func findConfigPath() (string, error) {
+	candidates := []string{"onyx.toml", "/etc/onyx/onyx.toml"}
+	if home, err := os.UserHomeDir(); err == nil {
+		candidates = append(candidates, filepath.Join(home, ".config", "onyx", "onyx.toml"))
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+	return "", fmt.Errorf("no onyx.toml found -- run 'onyx setup' first")
 }
