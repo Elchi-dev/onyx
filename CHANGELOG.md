@@ -9,6 +9,55 @@ Format: [Keep a Changelog](https://keepachangelog.com/) · Versioning: [SemVer](
 
 ---
 
+## [v0.2.0] — 2026-03-29
+
+### Added
+
+- **Automatic HTTPS via Let's Encrypt (ACME)** — enable HTTPS per route with
+  `https = true` in `onyx.toml` or via the dashboard toggle. Public domains get
+  a real certificate from Let's Encrypt automatically; local domains (`.test`,
+  `.local`, `localhost`, IPs) get a self-signed certificate generated on first
+  start. Certificates are stored in `~/.config/onyx/certs/` and renewed
+  automatically before expiry.
+- **`internal/tls` package** — new certificate manager handling ACME via
+  `autocert`, self-signed cert generation, dynamic host registration, and cert
+  status reporting.
+- **HTTP → HTTPS redirect** — when HTTPS is active, port 80 automatically
+  redirects all traffic to HTTPS and serves ACME HTTP-01 challenges.
+- **Certificates view** — new dashboard page showing TLS status per route
+  (valid / expiring soon / pending / error), certificate mode (Let's Encrypt
+  vs self-signed), and expiry date.
+
+### Dashboard
+
+- **Complete UI redesign** — new modern look with refined typography, spacing,
+  and color palette. Smooth view-transition animations throughout.
+- **Overview page** — new landing page with stat cards, a live requests/minute
+  sparkline chart (Chart.js), and a recent traffic feed.
+- **Live Traffic page** — dedicated full-page feed with filter bar (by host,
+  method, status code) and a pause/resume button.
+- **Analytics page** — requests-by-route and error-rate bar charts (Chart.js),
+  plus per-route breakdown cards with traffic bars.
+- **Settings page** — change dashboard password directly from the browser
+  without touching the terminal.
+- **Toast notifications** — all actions (add route, delete, toggle, password
+  change) now show slide-in toast messages instead of alert bars.
+- **HTTPS toggle per route** — enable or disable HTTPS on any route directly
+  from the Routes table.
+
+### API
+
+- `POST /api/routes` now accepts an `https` boolean field.
+- `PATCH /api/routes/{host}` now accepts an `https` boolean field.
+- `GET /api/certs` — new endpoint returning TLS certificate status for all
+  HTTPS-enabled routes.
+- `POST /api/settings/password` — new endpoint for in-dashboard password
+  changes.
+- `GET /api/stats` now includes `req_per_min` (average requests per minute
+  since startup).
+
+---
+
 ## [v0.1.2] — 2026-03-29
 
 ### Fixed
