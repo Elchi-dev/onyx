@@ -98,11 +98,11 @@ type RouteManager interface {
 // New creates a Dashboard, wires all routes, and starts background cleanup.
 func New(log *slog.Logger, db *database.DB, router RouteManager) *Dashboard {
 	d := &Dashboard{
-		log:        log,
-		hub:        NewHub(log),
-		db:         db,
-		router:     router,
-		mux:        http.NewServeMux(),
+		log:    log,
+		hub:    NewHub(log),
+		db:     db,
+		router: router,
+		mux:    http.NewServeMux(),
 		// Max 5 login attempts per minute per IP.
 		loginLimit: newLoginLimiter(5, time.Minute),
 		stats:      newServerStats(),
