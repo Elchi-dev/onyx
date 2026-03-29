@@ -1,12 +1,14 @@
 // Package app is the dependency wiring layer for Onyx.
 // It owns the lifecycle of all major components and connects them together.
-// CLI commands only need to know about app.App -- not individual internals.
+// CLI commands only need to know about app.App — not individual internals.
 package app
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,9 +23,9 @@ import (
 	"github.com/Elchi-dev/onyx/internal/middleware"
 	"github.com/Elchi-dev/onyx/internal/proxy"
 	"github.com/Elchi-dev/onyx/internal/ratelimit"
+	tlsmgr "github.com/Elchi-dev/onyx/internal/tls"
 )
 
-// defaultBodyLimit is the maximum allowed request body size (10 MiB).
 const defaultBodyLimit = 10 << 20
 
 // App holds all wired components and orchestrates startup and shutdown.
@@ -33,6 +35,7 @@ type App struct {
 	db      *database.DB
 	dash    *dashboard.Dashboard
 	router  *proxy.Router
+	tlsMgr  *tlsmgr.Manager
 	version string
 }
 
@@ -43,27 +46,21 @@ func New(cfg *config.Config, log *slog.Logger, version string) (*App, error) {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
-	// Create router first (with no event handler yet) so we can pass it to
-	// the dashboard as the RouteManager. The event handler is wired after.
+	var httpsHosts []string
 	router := proxy.New(log, nil)
 
-	// Dashboard gets the router so it can add/remove routes live from the UI.
-	dash := dashboard.New(log, db)
-	dash.SetVersion(version)
-
-	// Now wire the event handler: proxy events -> dashboard broadcast.
-	router.SetEventHandler(dash.BroadcastRequest)
-
-	// Load routes from TOML config.
 	for _, r := range cfg.Routes {
 		if r.Enabled {
 			if err := router.AddRoute(r.Host, r.Target); err != nil {
 				log.Warn("skipping invalid config route", "host", r.Host, "error", err)
+				continue
+			}
+			if r.HTTPS {
+				httpsHosts = append(httpsHosts, r.Host)
 			}
 		}
 	}
 
-	// Load routes stored in the database (added via CLI or dashboard).
 	dbRoutes, err := db.ListRoutes()
 	if err != nil {
 		return nil, fmt.Errorf("loading db routes: %w", err)
@@ -72,6 +69,9 @@ func New(cfg *config.Config, log *slog.Logger, version string) (*App, error) {
 		if r.Enabled {
 			_ = router.AddRoute(r.Host, r.Target)
 		}
+		if r.HTTPS {
+			httpsHosts = append(httpsHosts, r.Host)
+		}
 	}
 
 	log.Info("routes loaded",
@@ -79,7 +79,15 @@ func New(cfg *config.Config, log *slog.Logger, version string) (*App, error) {
 		"database", len(dbRoutes),
 	)
 
-	return &App{cfg: cfg, log: log, db: db, dash: dash, router: router, version: version}, nil
+	tm := tlsmgr.New(cfg.Server.DataDir, httpsHosts, log)
+	dash := dashboard.New(log, db, tm)
+	dash.SetVersion(version)
+	router.SetEventHandler(dash.BroadcastRequest)
+
+	return &App{
+		cfg: cfg, log: log, db: db,
+		dash: dash, router: router, tlsMgr: tm, version: version,
+	}, nil
 }
 
 // Run starts all servers and blocks until SIGTERM or SIGINT.
@@ -88,24 +96,42 @@ func (a *App) Run() error {
 	defer cancel()
 
 	proxyAddr := fmt.Sprintf(":%d", a.cfg.Server.HTTPPort)
+	httpsAddr := fmt.Sprintf(":%d", a.cfg.Server.HTTPSPort)
 	dashAddr := fmt.Sprintf(":%d", a.cfg.Dashboard.Port)
+	hasHTTPS := a.hasHTTPSRoutes()
 
 	a.log.Info("Onyx starting",
 		slog.String("proxy", proxyAddr),
 		slog.String("dashboard", dashAddr),
 		slog.String("version", a.version),
+		slog.Bool("https", hasHTTPS),
 	)
 
 	var wg sync.WaitGroup
-	errCh := make(chan error, 2)
+	errCh := make(chan error, 3)
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := proxy.StartServer(ctx, proxyAddr, a.proxyHandler(), a.log); err != nil {
+		httpHandler := a.proxyHandler()
+		if hasHTTPS {
+			redirect := tlsmgr.RedirectToHTTPS(a.cfg.Server.HTTPSPort)
+			httpHandler = a.tlsMgr.HTTPHandler(redirect)
+		}
+		if err := proxy.StartServer(ctx, proxyAddr, httpHandler, a.log); err != nil {
 			errCh <- err
 		}
 	}()
+
+	if hasHTTPS {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := a.startHTTPSServer(ctx, httpsAddr); err != nil {
+				errCh <- err
+			}
+		}()
+	}
 
 	if a.cfg.Dashboard.Enabled {
 		wg.Add(1)
@@ -124,12 +150,51 @@ func (a *App) Run() error {
 			return err
 		}
 	}
-
 	a.log.Info("Onyx stopped cleanly")
 	return nil
 }
 
-// Close releases resources.
+func (a *App) startHTTPSServer(ctx context.Context, addr string) error {
+	srv := &http.Server{
+		Addr:      addr,
+		Handler:   a.proxyHandler(),
+		TLSConfig: a.tlsMgr.TLSConfig(),
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("https server: %w", err)
+	}
+	tlsLn := tls.NewListener(ln, a.tlsMgr.TLSConfig())
+	errCh := make(chan error, 1)
+	go func() {
+		a.log.Info("https proxy listening", "addr", addr)
+		if err := srv.Serve(tlsLn); err != nil && err != http.ErrServerClosed {
+			errCh <- fmt.Errorf("https server: %w", err)
+		}
+	}()
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		return srv.Close()
+	}
+}
+
+func (a *App) hasHTTPSRoutes() bool {
+	for _, r := range a.cfg.Routes {
+		if r.HTTPS && r.Enabled {
+			return true
+		}
+	}
+	routes, _ := a.db.ListRoutes()
+	for _, r := range routes {
+		if r.HTTPS && r.Enabled {
+			return true
+		}
+	}
+	return false
+}
+
 func (a *App) Close() error {
 	if a.db != nil {
 		return a.db.Close()
@@ -137,11 +202,8 @@ func (a *App) Close() error {
 	return nil
 }
 
-// DB exposes the database for CLI commands that need direct access.
 func (a *App) DB() *database.DB { return a.db }
 
-// proxyHandler builds the middleware-wrapped proxy handler.
-// Stack (outermost first): Recovery -> BodyLimit -> RequestLogger -> SecureHeaders -> RateLimit -> Router
 func (a *App) proxyHandler() http.Handler {
 	globalLimiter := ratelimit.New(1000, 500)
 	return middleware.Chain(
@@ -154,11 +216,8 @@ func (a *App) proxyHandler() http.Handler {
 	)
 }
 
-// NewFromConfigPath loads config and wires the App.
-// Pass empty string to auto-detect config location.
 func NewFromConfigPath(configPath string, development bool, version string) (*App, error) {
 	log := logger.New(logLevel(development), development)
-
 	if configPath == "" {
 		var err error
 		configPath, err = findConfig()
@@ -166,12 +225,10 @@ func NewFromConfigPath(configPath string, development bool, version string) (*Ap
 			return nil, err
 		}
 	}
-
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading config %q: %w", configPath, err)
 	}
-
 	return New(cfg, log, version)
 }
 
@@ -182,7 +239,6 @@ func logLevel(dev bool) slog.Level {
 	return slog.LevelInfo
 }
 
-// findConfig searches standard locations for onyx.toml.
 func findConfig() (string, error) {
 	candidates := []string{"onyx.toml", "/etc/onyx/onyx.toml"}
 	if home, err := os.UserHomeDir(); err == nil {
@@ -193,5 +249,5 @@ func findConfig() (string, error) {
 			return p, nil
 		}
 	}
-	return "", fmt.Errorf("no onyx.toml found -- run 'onyx setup' first")
+	return "", fmt.Errorf("no onyx.toml found — run 'onyx setup' first")
 }

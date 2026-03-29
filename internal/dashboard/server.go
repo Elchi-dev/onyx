@@ -14,27 +14,21 @@ import (
 	"github.com/Elchi-dev/onyx/internal/auth"
 	"github.com/Elchi-dev/onyx/internal/database"
 	"github.com/Elchi-dev/onyx/internal/proxy"
+	tlsmgr "github.com/Elchi-dev/onyx/internal/tls"
 )
 
-// upgrader upgrades HTTP connections to WebSocket.
-// CheckOrigin validates that the request comes from the same host as the dashboard
-// to prevent cross-site WebSocket hijacking.
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin:     checkSameOrigin,
 }
 
-// checkSameOrigin rejects WebSocket upgrades from a different origin.
-// This prevents any website from silently opening a WebSocket to the dashboard.
 func checkSameOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
-		// No origin header — allow (direct/curl access).
 		return true
 	}
 	host := r.Host
-	// Strip scheme from origin for comparison.
 	origin = strings.TrimPrefix(origin, "https://")
 	origin = strings.TrimPrefix(origin, "http://")
 	return origin == host
@@ -51,16 +45,12 @@ type ProxyRequestEvent struct {
 	ClientIP  string    `json:"client_ip"`
 }
 
-// BroadcastRequest converts a proxy.RequestEvent, records it in the database,
-// and broadcasts it to all connected dashboard clients.
+// BroadcastRequest records a request and broadcasts it to dashboard clients.
 func (d *Dashboard) BroadcastRequest(e proxy.RequestEvent) {
 	d.stats.record()
-
-	// Persist to database for server-side stats (non-blocking best-effort).
 	if err := d.db.RecordRequest(e.Host, e.Status, e.LatencyMs); err != nil {
 		d.log.Warn("recording request stat", "error", err)
 	}
-
 	d.hub.Broadcast(Event{
 		Type: "request",
 		Payload: ProxyRequestEvent{
@@ -80,6 +70,7 @@ type Dashboard struct {
 	log        *slog.Logger
 	hub        *Hub
 	db         *database.DB
+	tls        *tlsmgr.Manager
 	mux        *http.ServeMux
 	loginLimit *loginLimiter
 	stats      *serverStats
@@ -88,13 +79,13 @@ type Dashboard struct {
 }
 
 // New creates a Dashboard, wires all routes, and starts background cleanup.
-func New(log *slog.Logger, db *database.DB) *Dashboard {
+func New(log *slog.Logger, db *database.DB, tls *tlsmgr.Manager) *Dashboard {
 	d := &Dashboard{
-		log: log,
-		hub: NewHub(log),
-		db:  db,
-		mux: http.NewServeMux(),
-		// Max 5 login attempts per minute per IP.
+		log:        log,
+		hub:        NewHub(log),
+		db:         db,
+		tls:        tls,
+		mux:        http.NewServeMux(),
 		loginLimit: newLoginLimiter(5, time.Minute),
 		stats:      newServerStats(),
 		startTime:  time.Now(),
@@ -118,11 +109,12 @@ func (d *Dashboard) registerRoutes() {
 	d.mux.HandleFunc("/logout", d.handleLogout)
 	d.mux.HandleFunc("/ws", d.requireAuth(d.handleWebSocket))
 
-	// API — all JSON, all require auth.
 	d.mux.HandleFunc("/api/routes", d.requireAuth(d.handleRoutesAPI))
 	d.mux.HandleFunc("/api/routes/", d.requireAuth(d.handleRouteByHost))
 	d.mux.HandleFunc("/api/stats", d.requireAuth(d.handleStatsAPI))
 	d.mux.HandleFunc("/api/about", d.requireAuth(d.handleAboutAPI))
+	d.mux.HandleFunc("/api/certs", d.requireAuth(d.handleCertsAPI))
+	d.mux.HandleFunc("/api/settings/password", d.requireAuth(d.handleChangePassword))
 }
 
 // ── Page handlers ─────────────────────────────────────────────────────────────
@@ -130,6 +122,17 @@ func (d *Dashboard) registerRoutes() {
 func (d *Dashboard) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
+		return
+	}
+	// Redirect to login if not authenticated.
+	cookie, err := r.Cookie("onyx_session")
+	if err != nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	valid, _, err := d.db.ValidateSession(cookie.Value)
+	if err != nil || !valid {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -142,13 +145,11 @@ func (d *Dashboard) handleLogin(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(loginHTML))
 		return
 	}
-
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Rate limit: max 5 attempts per minute per IP.
 	if !d.loginLimit.allow(r) {
 		w.Header().Set("Retry-After", "60")
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -166,7 +167,6 @@ func (d *Dashboard) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
-
 	if !auth.CheckPassword(hash, password) {
 		d.log.Warn("failed login attempt", "remote", r.RemoteAddr)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -180,7 +180,6 @@ func (d *Dashboard) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
-
 	if err := d.db.SaveSession(session.Token, session.ExpiresAt); err != nil {
 		d.log.Error("saving session", "error", err)
 		http.Error(w, "Server error", http.StatusInternalServerError)
@@ -195,7 +194,6 @@ func (d *Dashboard) handleLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
-
 	d.log.Info("successful login", "remote", r.RemoteAddr, "remember_me", rememberMe)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -205,10 +203,7 @@ func (d *Dashboard) handleLogout(w http.ResponseWriter, r *http.Request) {
 		_ = d.db.DeleteSession(cookie.Value)
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name:    "onyx_session",
-		Value:   "",
-		Expires: time.Unix(0, 0),
-		Path:    "/",
+		Name: "onyx_session", Value: "", Expires: time.Unix(0, 0), Path: "/",
 	})
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
@@ -224,7 +219,6 @@ func (d *Dashboard) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 // ── API handlers ──────────────────────────────────────────────────────────────
 
-// handleRoutesAPI handles GET (list) and POST (create) for /api/routes.
 func (d *Dashboard) handleRoutesAPI(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -239,6 +233,7 @@ func (d *Dashboard) handleRoutesAPI(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Host   string `json:"host"`
 			Target string `json:"target"`
+			HTTPS  bool   `json:"https"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			jsonError(w, "invalid JSON body", http.StatusBadRequest)
@@ -248,11 +243,13 @@ func (d *Dashboard) handleRoutesAPI(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "host and target are required", http.StatusBadRequest)
 			return
 		}
-		if err := d.db.UpsertRoute(body.Host, body.Target, true); err != nil {
+		if err := d.db.UpsertRoute(body.Host, body.Target, true, body.HTTPS); err != nil {
 			jsonError(w, "database error", http.StatusInternalServerError)
 			return
 		}
-		// Broadcast a routes-changed event so connected clients refresh their list.
+		if body.HTTPS && d.tls != nil {
+			d.tls.AddHost(body.Host)
+		}
 		d.hub.Broadcast(Event{Type: "routes_changed", Payload: nil})
 		jsonOK(w, map[string]string{"status": "created", "host": body.Host})
 
@@ -261,14 +258,12 @@ func (d *Dashboard) handleRoutesAPI(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleRouteByHost handles DELETE and PATCH for /api/routes/{host}.
 func (d *Dashboard) handleRouteByHost(w http.ResponseWriter, r *http.Request) {
 	host := strings.TrimPrefix(r.URL.Path, "/api/routes/")
 	if host == "" {
 		jsonError(w, "host required in path", http.StatusBadRequest)
 		return
 	}
-
 	switch r.Method {
 	case http.MethodDelete:
 		if err := d.db.DeleteRoute(host); err != nil {
@@ -281,21 +276,29 @@ func (d *Dashboard) handleRouteByHost(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPatch:
 		var body struct {
 			Enabled *bool `json:"enabled"`
+			HTTPS   *bool `json:"https"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			jsonError(w, "invalid JSON body", http.StatusBadRequest)
 			return
 		}
-		if body.Enabled == nil {
-			jsonError(w, "enabled field required", http.StatusBadRequest)
-			return
+		if body.Enabled != nil {
+			if err := d.db.SetRouteEnabled(host, *body.Enabled); err != nil {
+				jsonError(w, "database error", http.StatusInternalServerError)
+				return
+			}
 		}
-		if err := d.db.SetRouteEnabled(host, *body.Enabled); err != nil {
-			jsonError(w, "database error", http.StatusInternalServerError)
-			return
+		if body.HTTPS != nil {
+			if err := d.db.SetRouteHTTPS(host, *body.HTTPS); err != nil {
+				jsonError(w, "database error", http.StatusInternalServerError)
+				return
+			}
+			if *body.HTTPS && d.tls != nil {
+				d.tls.AddHost(host)
+			}
 		}
 		d.hub.Broadcast(Event{Type: "routes_changed", Payload: nil})
-		jsonOK(w, map[string]any{"status": "updated", "host": host, "enabled": *body.Enabled})
+		jsonOK(w, map[string]any{"status": "updated", "host": host})
 
 	default:
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -317,6 +320,7 @@ func (d *Dashboard) handleStatsAPI(w http.ResponseWriter, r *http.Request) {
 		"global":    global,
 		"per_route": perRoute,
 		"uptime":    d.stats.uptimeString(),
+		"req_per_min": d.stats.reqPerMin(),
 	})
 }
 
@@ -326,6 +330,55 @@ func (d *Dashboard) handleAboutAPI(w http.ResponseWriter, r *http.Request) {
 		"uptime":     d.stats.uptimeString(),
 		"start_time": d.startTime.Format(time.RFC3339),
 	})
+}
+
+func (d *Dashboard) handleCertsAPI(w http.ResponseWriter, r *http.Request) {
+	if d.tls == nil {
+		jsonOK(w, []any{})
+		return
+	}
+	jsonOK(w, d.tls.CertStatuses())
+}
+
+func (d *Dashboard) handleChangePassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		Current string `json:"current"`
+		New     string `json:"new"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		jsonError(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	if len(body.New) < 8 {
+		jsonError(w, "new password must be at least 8 characters", http.StatusBadRequest)
+		return
+	}
+
+	hash, ok, err := d.db.GetSetting(auth.SettingKeyPasswordHash)
+	if err != nil || !ok {
+		jsonError(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	if !auth.CheckPassword(hash, body.Current) {
+		jsonError(w, "current password is incorrect", http.StatusUnauthorized)
+		return
+	}
+
+	newHash, err := auth.HashPassword(body.New)
+	if err != nil {
+		jsonError(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	if err := d.db.SetSetting(auth.SettingKeyPasswordHash, newHash); err != nil {
+		jsonError(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	d.log.Info("dashboard password changed", "remote", r.RemoteAddr)
+	jsonOK(w, map[string]string{"status": "ok"})
 }
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
@@ -341,7 +394,6 @@ func (d *Dashboard) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			}
 			return
 		}
-
 		valid, _, err := d.db.ValidateSession(cookie.Value)
 		if err != nil || !valid {
 			if isAPIRequest(r) {
@@ -351,27 +403,22 @@ func (d *Dashboard) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			}
 			return
 		}
-
 		next(w, r)
 	}
 }
 
-// isAPIRequest reports whether the request is to an /api/ endpoint.
 func isAPIRequest(r *http.Request) bool {
 	return strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/ws"
 }
 
 // ── Background tasks ──────────────────────────────────────────────────────────
 
-// sessionCleanup purges expired sessions from the database every hour.
 func (d *Dashboard) sessionCleanup() {
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 	for range ticker.C {
 		if err := d.db.PurgeExpiredSessions(); err != nil {
 			d.log.Warn("purging expired sessions", "error", err)
-		} else {
-			d.log.Debug("purged expired sessions")
 		}
 	}
 }

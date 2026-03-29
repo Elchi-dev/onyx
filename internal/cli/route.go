@@ -27,8 +27,8 @@ func newRouteAddCommand() *cobra.Command {
 	var host, target string
 
 	cmd := &cobra.Command{
-		Use:     "add",
-		Short:   "Add a new proxy route",
+		Use:   "add",
+		Short: "Add a new proxy route",
 		Example: "  onyx route add --host api.example.com --target http://localhost:3000",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			db, err := openDB()
@@ -36,7 +36,7 @@ func newRouteAddCommand() *cobra.Command {
 				return err
 			}
 			defer db.Close()
-			if err := db.UpsertRoute(host, target, true); err != nil {
+			if err := db.UpsertRoute(host, target, true, false); err != nil {
 				return err
 			}
 			fmt.Printf("✓ Route added: %s → %s\n", host, target)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite" // Pure-Go SQLite driver — no CGo, no external libraries.
@@ -49,9 +50,16 @@ func Exists(dbPath string) bool {
 
 // migrate applies all schema migrations in order.
 // Migrations are append-only — never modify an existing entry.
+// ALTER TABLE migrations that fail with "duplicate column" are silently ignored.
 func (db *DB) migrate() error {
 	for i, m := range migrations {
 		if _, err := db.sql.Exec(m); err != nil {
+			// SQLite returns "duplicate column name" when ALTER TABLE ADD COLUMN
+			// is run on a column that already exists. This is expected on existing
+			// databases — safe to ignore.
+			if strings.Contains(err.Error(), "duplicate column") {
+				continue
+			}
 			return fmt.Errorf("migration %d: %w", i+1, err)
 		}
 	}
@@ -89,6 +97,8 @@ var migrations = []string{
 		last_seen_at DATETIME,
 		updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`,
+	// 5 — add https column to routes (safe to run multiple times)
+	`ALTER TABLE routes ADD COLUMN https INTEGER NOT NULL DEFAULT 0;`,
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -127,15 +137,16 @@ type Route struct {
 	Host    string
 	Target  string
 	Enabled bool
+	HTTPS   bool
 }
 
 // UpsertRoute inserts or updates a route record.
-func (db *DB) UpsertRoute(host, target string, enabled bool) error {
+func (db *DB) UpsertRoute(host, target string, enabled, https bool) error {
 	_, err := db.sql.Exec(
-		`INSERT INTO routes(host,target,enabled,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP)
+		`INSERT INTO routes(host,target,enabled,https,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP)
 		 ON CONFLICT(host) DO UPDATE SET target=excluded.target, enabled=excluded.enabled,
-		 updated_at=CURRENT_TIMESTAMP`,
-		host, target, boolToInt(enabled),
+		 https=excluded.https, updated_at=CURRENT_TIMESTAMP`,
+		host, target, boolToInt(enabled), boolToInt(https),
 	)
 	if err != nil {
 		return fmt.Errorf("upsert route %q: %w", host, err)
@@ -155,9 +166,21 @@ func (db *DB) SetRouteEnabled(host string, enabled bool) error {
 	return nil
 }
 
+// SetRouteHTTPS toggles HTTPS for a route.
+func (db *DB) SetRouteHTTPS(host string, https bool) error {
+	_, err := db.sql.Exec(
+		`UPDATE routes SET https=?, updated_at=CURRENT_TIMESTAMP WHERE host=?`,
+		boolToInt(https), host,
+	)
+	if err != nil {
+		return fmt.Errorf("set route https %q: %w", host, err)
+	}
+	return nil
+}
+
 // ListRoutes returns all stored routes ordered by insertion time.
 func (db *DB) ListRoutes() ([]Route, error) {
-	rows, err := db.sql.Query(`SELECT id,host,target,enabled FROM routes ORDER BY id`)
+	rows, err := db.sql.Query(`SELECT id,host,target,enabled,COALESCE(https,0) FROM routes ORDER BY id`)
 	if err != nil {
 		return nil, fmt.Errorf("list routes: %w", err)
 	}
@@ -165,11 +188,12 @@ func (db *DB) ListRoutes() ([]Route, error) {
 	var routes []Route
 	for rows.Next() {
 		var r Route
-		var e int
-		if err := rows.Scan(&r.ID, &r.Host, &r.Target, &e); err != nil {
+		var e, h int
+		if err := rows.Scan(&r.ID, &r.Host, &r.Target, &e, &h); err != nil {
 			return nil, err
 		}
 		r.Enabled = e == 1
+		r.HTTPS = h == 1
 		routes = append(routes, r)
 	}
 	return routes, rows.Err()

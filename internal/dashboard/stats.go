@@ -41,3 +41,12 @@ func (s *serverStats) uptimeString() string {
 	}
 	return fmt.Sprintf("%dm", mins)
 }
+
+// reqPerMin returns the average requests per minute since startup.
+func (s *serverStats) reqPerMin() float64 {
+	mins := s.uptime().Minutes()
+	if mins < 0.01 {
+		return 0
+	}
+	return float64(s.reqCount.Load()) / mins
+}

@@ -1,427 +1,917 @@
 package dashboard
 
-// dashboardHTML is the full dashboard UI, embedded directly in the binary.
 const dashboardHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Onyx Dashboard</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%237c6af7'/><text y='24' x='4' font-size='22' font-family='monospace' fill='white'>&#9670;</text></svg>">
+<title>Onyx</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236366f1'/><text y='22' x='5' font-size='18' font-family='monospace' fill='white'>&#9670;</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
-:root{
-  --bg:#0a0a0f;--surface:#0f0f18;--surface2:#151520;--border:#1c1c2e;
-  --accent:#7c6af7;--accent-dim:rgba(124,106,247,.15);
-  --green:#3ddc97;--red:#ff5370;--yellow:#ffcb6b;--blue:#82aaff;
-  --text:#e4e4ef;--muted:#555570;--muted2:#3a3a52;
+:root {
+  --bg:#0c0c14;--surface:#111120;--surface2:#181828;--surface3:#1f1f35;
+  --border:#232338;--border2:#2a2a45;
+  --accent:#6366f1;--accent2:#818cf8;--accent-dim:rgba(99,102,241,.12);--accent-glow:rgba(99,102,241,.25);
+  --green:#10b981;--green-dim:rgba(16,185,129,.12);
+  --red:#ef4444;--red-dim:rgba(239,68,68,.12);
+  --yellow:#f59e0b;--yellow-dim:rgba(245,158,11,.12);
+  --blue:#3b82f6;--blue-dim:rgba(59,130,246,.12);
+  --text:#e2e2f0;--text2:#9090b8;--muted:#4a4a6a;
+  --radius:10px;--radius-sm:6px;
 }
-*{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;overflow:hidden;}
-body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;display:flex;flex-direction:column;}
-.hdr{display:flex;align-items:center;gap:16px;padding:0 20px;height:52px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
-.logo{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:15px;color:var(--accent);letter-spacing:-.5px;margin-right:4px;}
-.logo-dot{color:var(--green);}
-.hdr-spacer{flex:1;}
-.badge{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;}
-.dot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
-.dot.live{background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 2s ease-in-out infinite;}
-.dot.running{background:var(--green);box-shadow:0 0 6px var(--green);}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-.btn-logout{font-size:11px;color:var(--muted);background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;}
-.btn-logout:hover{color:var(--red);border-color:var(--red);}
-.layout{display:flex;flex:1;overflow:hidden;}
-.sidebar{width:200px;background:var(--surface);border-right:1px solid var(--border);padding:12px 8px;display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
-.nav{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer;color:var(--muted);transition:all .12s;font-size:13px;user-select:none;}
-.nav:hover{background:var(--surface2);color:var(--text);}
-.nav.active{background:var(--accent-dim);color:var(--accent);font-weight:500;}
-.nav-icon{font-size:14px;width:18px;text-align:center;}
-.sidebar-sep{height:1px;background:var(--border);margin:6px 4px;}
-.content{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px;}
-.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
-.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
-.stat.accent{border-color:rgba(124,106,247,.4);}
-.stat-val{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:600;line-height:1;color:var(--text);}
-.stat.accent .stat-val{color:var(--accent);}
-.stat-label{font-size:11px;color:var(--muted);margin-top:5px;text-transform:uppercase;letter-spacing:.06em;}
-.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
-.panel-head{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);gap:8px;}
-.panel-head .count{margin-left:auto;font-weight:400;}
-.panel-body{padding:16px;}
-.feed{font-family:'JetBrains Mono',monospace;font-size:12px;max-height:400px;overflow-y:auto;}
-.feed-empty{text-align:center;padding:40px;color:var(--muted);font-family:'Inter',sans-serif;}
-.feed-row{display:grid;grid-template-columns:110px 48px minmax(0,1.2fr) minmax(0,1fr) 52px 64px;gap:6px;padding:6px 8px;align-items:center;border-radius:4px;transition:background .08s;}
-.feed-row:hover{background:rgba(255,255,255,.03);}
-.feed-row+.feed-row{border-top:1px solid rgba(255,255,255,.03);}
-.ts{color:var(--muted);}
-.meth{font-weight:600;color:var(--blue);}
-.hcol{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.pcol{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.sc{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:700;text-align:center;}
-.sc-ok{background:rgba(61,220,151,.1);color:var(--green);}
-.sc-redir{background:rgba(255,203,107,.1);color:var(--yellow);}
-.sc-err{background:rgba(255,83,112,.1);color:var(--red);}
-.lat{color:var(--muted);text-align:right;}
-.lat.slow{color:var(--yellow);}
-.lat.very-slow{color:var(--red);}
-.routes-wrap{overflow-x:auto;}
-.rtable{width:100%;border-collapse:collapse;font-size:13px;}
-.rtable th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;}
-.rtable td{padding:11px 12px;border-bottom:1px solid rgba(255,255,255,.04);}
-.rtable tr:last-child td{border-bottom:none;}
-.rtable tr:hover td{background:rgba(255,255,255,.02);}
-.mono{font-family:'JetBrains Mono',monospace;font-size:12px;}
-.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
-.pill-on{background:rgba(61,220,151,.1);color:var(--green);}
-.pill-off{background:rgba(90,90,120,.15);color:var(--muted);}
-.icon-btn{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:4px;font-size:13px;color:var(--muted);transition:all .12s;}
-.icon-btn:hover{background:var(--surface2);color:var(--text);}
-.icon-btn.del:hover{color:var(--red);}
-.actions-cell{display:flex;gap:4px;align-items:center;}
-.add-form{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
-.field{display:flex;flex-direction:column;gap:5px;flex:1;min-width:160px;}
-.field label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
-.field input{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;transition:border-color .15s;width:100%;}
-.field input:focus{border-color:var(--accent);}
-.btn{padding:8px 18px;border-radius:7px;border:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;}
-.btn-primary{background:var(--accent);color:#fff;}
-.btn-primary:hover{opacity:.85;}
-.btn-primary:disabled{opacity:.4;cursor:not-allowed;}
-.route-stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
-.rs-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
-.rs-host{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.rs-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
-.rs-metric-val{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--text);}
-.rs-metric-label{font-size:10px;color:var(--muted);margin-top:2px;}
-.rs-bar{height:3px;background:var(--border);border-radius:2px;margin-top:10px;}
-.rs-bar-fill{height:100%;border-radius:2px;background:var(--accent);max-width:100%;}
-.rs-bar-fill.has-errors{background:var(--red);}
-.about-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;}
-.about-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
-.about-key{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px;}
-.about-val{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text);}
-.toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:1000;}
-.toast{padding:10px 16px;border-radius:8px;font-size:13px;display:flex;align-items:center;gap:8px;animation:slide-in .2s ease;max-width:320px;}
-.toast-ok{background:rgba(61,220,151,.15);border:1px solid rgba(61,220,151,.3);color:var(--green);}
-.toast-err{background:rgba(255,83,112,.15);border:1px solid rgba(255,83,112,.3);color:var(--red);}
-@keyframes slide-in{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}
-.view{display:none;}.view.active{display:block;}
-.alert-bar{display:none;align-items:center;gap:10px;padding:8px 16px;background:rgba(255,83,112,.1);border:1px solid rgba(255,83,112,.3);border-radius:8px;font-size:12px;color:var(--red);}
-.alert-bar.visible{display:flex;}
-@media(max-width:900px){.stats-row{grid-template-columns:repeat(2,1fr);}.feed-row{grid-template-columns:90px 42px minmax(0,1fr) 46px 58px;}.hcol.hide-mobile{display:none;}}
-@media(max-width:600px){.sidebar{display:none;}.stats-row{grid-template-columns:repeat(2,1fr);}.content{padding:14px;}}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;overflow:hidden}
+
+/* ── Header ── */
+.hdr{height:56px;display:flex;align-items:center;padding:0 20px;gap:16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;position:relative;z-index:10}
+.logo{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:16px;color:var(--accent);letter-spacing:-1px;display:flex;align-items:center;gap:6px}
+.logo-diamond{color:var(--accent2)}
+.hdr-spacer{flex:1}
+.ws-badge{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-family:'JetBrains Mono',monospace}
+.ws-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .3s,box-shadow .3s}
+.ws-dot.connected{background:var(--green);box-shadow:0 0 8px var(--green)}
+.ws-dot.connecting{background:var(--yellow);animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn-logout{background:none;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius-sm);padding:5px 12px;cursor:pointer;font-size:12px;font-family:'Inter',sans-serif;transition:all .15s}
+.btn-logout:hover{border-color:var(--red);color:var(--red)}
+
+/* ── Layout ── */
+.layout{display:flex;height:calc(100vh - 56px)}
+
+/* ── Sidebar ── */
+.sidebar{width:212px;background:var(--surface);border-right:1px solid var(--border);padding:12px 8px;display:flex;flex-direction:column;gap:1px;flex-shrink:0;overflow-y:auto}
+.nav{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);transition:all .12s;font-size:13px;user-select:none;position:relative}
+.nav:hover{background:var(--surface2);color:var(--text)}
+.nav.active{background:var(--accent-dim);color:var(--accent);font-weight:500}
+.nav.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:60%;background:var(--accent);border-radius:0 3px 3px 0}
+.nav-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.sidebar-sep{height:1px;background:var(--border);margin:6px 4px}
+.sidebar-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;padding:8px 12px 4px}
+
+/* ── Content ── */
+.content{flex:1;overflow-y:auto;padding:28px;display:flex;flex-direction:column;gap:24px;scroll-behavior:smooth}
+.view{display:none;flex-direction:column;gap:24px;animation:fadeIn .2s ease}
+.view.active{display:flex}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Page titles ── */
+.page-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.page-title{font-size:20px;font-weight:600;color:var(--text)}
+.page-subtitle{font-size:13px;color:var(--text2);margin-top:2px}
+
+/* ── Stat cards ── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;transition:border-color .2s}
+.stat-card:hover{border-color:var(--border2)}
+.stat-card.accent{border-color:var(--accent-dim);background:linear-gradient(135deg,var(--surface) 0%,rgba(99,102,241,.05) 100%)}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:600;line-height:1;color:var(--text);margin-bottom:6px}
+.stat-card.accent .stat-val{color:var(--accent)}
+.stat-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.07em}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:3px}
+
+/* ── Panels ── */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text2)}
+.panel-head-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.panel-body{padding:18px}
+
+/* ── Live feed ── */
+.feed{font-family:'JetBrains Mono',monospace;font-size:12px;overflow-y:auto;max-height:420px}
+.feed-empty{padding:48px 24px;text-align:center;color:var(--muted);font-family:'Inter',sans-serif}
+.feed-row{display:grid;grid-template-columns:100px 52px minmax(0,1.4fr) minmax(0,1fr) 50px 68px;gap:8px;padding:7px 10px;align-items:center;border-radius:var(--radius-sm);transition:background .08s}
+.feed-row:hover{background:rgba(255,255,255,.03)}
+.feed-row+.feed-row{border-top:1px solid rgba(255,255,255,.03)}
+.ts{color:var(--muted)}
+.meth{font-weight:600;color:var(--blue)}
+.hcol{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcol{color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sc{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700}
+.sc-2{background:var(--green-dim);color:var(--green)}
+.sc-3{background:var(--blue-dim);color:var(--blue)}
+.sc-4{background:var(--yellow-dim);color:var(--yellow)}
+.sc-5{background:var(--red-dim);color:var(--red)}
+.lat{color:var(--text2);text-align:right}
+.lat.slow{color:var(--yellow)}
+.lat.vslow{color:var(--red)}
+
+/* ── Filter bar ── */
+.filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.filter-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:var(--radius-sm);padding:5px 12px;cursor:pointer;font-size:12px;transition:all .12s;font-family:'Inter',sans-serif}
+.filter-btn:hover,.filter-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.filter-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:5px 12px;font-size:12px;outline:none;font-family:'JetBrains Mono',monospace;width:180px;transition:border-color .15s}
+.filter-input:focus{border-color:var(--accent)}
+.filter-input::placeholder{color:var(--muted)}
+.spacer{flex:1}
+.pause-btn{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:var(--radius-sm);padding:5px 12px;cursor:pointer;font-size:12px;transition:all .12s;font-family:'Inter',sans-serif}
+.pause-btn.paused{background:var(--yellow-dim);border-color:var(--yellow);color:var(--yellow)}
+.pause-btn:hover{border-color:var(--text2);color:var(--text)}
+
+/* ── Routes table ── */
+.rtable-wrap{overflow-x:auto}
+.rtable{width:100%;border-collapse:collapse;font-size:13px}
+.rtable th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:9px 14px;border-bottom:1px solid var(--border);font-weight:600}
+.rtable td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.04)}
+.rtable tr:last-child td{border-bottom:none}
+.rtable tr:hover td{background:rgba(255,255,255,.02)}
+.mono{font-family:'JetBrains Mono',monospace;font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.pill-green{background:var(--green-dim);color:var(--green)}
+.pill-red{background:var(--red-dim);color:var(--red)}
+.pill-blue{background:var(--blue-dim);color:var(--blue)}
+.pill-yellow{background:var(--yellow-dim);color:var(--yellow)}
+.pill-muted{background:rgba(74,74,106,.2);color:var(--muted)}
+
+/* ── Actions ── */
+.icon-btn{background:none;border:none;cursor:pointer;padding:5px 7px;border-radius:var(--radius-sm);color:var(--text2);transition:all .12s;font-size:13px;line-height:1}
+.icon-btn:hover{background:var(--surface2);color:var(--text)}
+.icon-btn.del:hover{color:var(--red);background:var(--red-dim)}
+.actions{display:flex;gap:2px;align-items:center}
+
+/* ── Add route form ── */
+.add-form{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:6px;flex:1;min-width:150px}
+.field label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+.field input{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;transition:border-color .15s;width:100%}
+.field input:focus{border-color:var(--accent)}
+.field input::placeholder{color:var(--muted)}
+.checkbox-field{display:flex;align-items:center;gap:8px;cursor:pointer;padding-bottom:2px}
+.checkbox-field input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
+.checkbox-field span{font-size:13px;color:var(--text2)}
+
+/* ── Buttons ── */
+.btn{padding:9px 18px;border-radius:var(--radius-sm);border:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-ghost{background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
+.btn-danger{background:var(--red-dim);border:1px solid var(--red);color:var(--red)}
+.btn-danger:hover{background:var(--red);color:#fff}
+.btn-sm{padding:6px 12px;font-size:12px}
+
+/* ── Cert cards ── */
+.cert-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.cert-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;position:relative;overflow:hidden}
+.cert-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.cert-card.valid::before{background:var(--green)}
+.cert-card.expiring_soon::before{background:var(--yellow)}
+.cert-card.error,.cert-card.pending{border-color:var(--border2)}
+.cert-card.error::before{background:var(--red)}
+.cert-card.pending::before{background:var(--muted)}
+.cert-host{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cert-meta{display:flex;flex-direction:column;gap:5px}
+.cert-row{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+.cert-row .label{color:var(--text2)}
+.cert-row .val{font-family:'JetBrains Mono',monospace;color:var(--text);font-size:11px}
+
+/* ── Stats view ── */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.chart-title{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:16px}
+.chart-canvas{max-height:200px}
+.route-stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.rs-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:15px 17px}
+.rs-host{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rs-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.rs-val{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600}
+.rs-lbl{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase}
+.rs-bar{height:3px;background:var(--border);border-radius:2px}
+.rs-fill{height:100%;border-radius:2px;background:var(--accent);max-width:100%;transition:width .5s ease}
+.rs-fill.has-errors{background:var(--red)}
+
+/* ── Settings ── */
+.settings-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:480px}
+.settings-title{font-size:15px;font-weight:600;margin-bottom:4px}
+.settings-desc{font-size:13px;color:var(--text2);margin-bottom:20px}
+.form-stack{display:flex;flex-direction:column;gap:14px}
+
+/* ── About ── */
+.about-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.about-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px}
+.about-card-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.about-card-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--text)}
+.about-links{display:flex;gap:10px;flex-wrap:wrap}
+.about-link{color:var(--accent);font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.about-link:hover{color:var(--accent2);text-decoration:underline}
+
+/* ── Alert banner ── */
+.alert-bar{display:none;align-items:center;gap:10px;padding:10px 18px;background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);font-size:13px;color:var(--red)}
+.alert-bar.show{display:flex}
+
+/* ── Toasts ── */
+#toasts{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:1000;pointer-events:none}
+.toast{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;font-size:13px;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.4);animation:slideIn .2s ease;pointer-events:all;min-width:240px}
+.toast.ok{border-left:3px solid var(--green)}
+.toast.err{border-left:3px solid var(--red)}
+.toast.info{border-left:3px solid var(--accent)}
+@keyframes slideIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideOut{to{opacity:0;transform:translateX(24px)}}
+
+/* ── Toggle switch ── */
+.toggle{position:relative;display:inline-block;width:34px;height:18px;flex-shrink:0}
+.toggle input{display:none}
+.toggle-slider{position:absolute;inset:0;background:var(--border2);border-radius:20px;cursor:pointer;transition:background .2s}
+.toggle-slider::before{content:'';position:absolute;width:12px;height:12px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle input:checked+.toggle-slider{background:var(--accent)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(16px)}
+
+/* ── Responsive ── */
+@media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr)}.charts-grid{grid-template-columns:1fr}.sidebar{width:48px}.nav span:not(.nav-icon){display:none}.nav{padding:10px;justify-content:center}}
+@media(max-width:600px){.stats-grid{grid-template-columns:1fr}.feed-row{grid-template-columns:80px 44px 1fr 44px}.hcol,.pcol{display:none}}
 </style>
 </head>
 <body>
+
+<!-- Header -->
 <header class="hdr">
-  <div class="logo">onyx<span class="logo-dot">.</span></div>
-  <div class="badge"><div class="dot running"></div>running</div>
-  <div class="badge" id="ws-badge"><div class="dot" id="ws-dot"></div><span id="ws-lbl">connecting</span></div>
+  <div class="logo"><span class="logo-diamond">&#9670;</span> onyx</div>
   <div class="hdr-spacer"></div>
-  <button class="btn-logout" onclick="logout()">Sign out</button>
+  <div class="ws-badge"><div class="ws-dot connecting" id="wsDot"></div><span id="wsLabel">Connecting</span></div>
+  <button class="btn-logout" onclick="location.href='/logout'">Sign out</button>
 </header>
+
 <div class="layout">
+  <!-- Sidebar -->
   <nav class="sidebar">
-    <div class="nav active" id="nav-live" onclick="showView('live',this)"><span class="nav-icon">&#9889;</span>Live Traffic</div>
-    <div class="nav" id="nav-routes" onclick="showView('routes',this)"><span class="nav-icon">&#8644;</span>Routes</div>
-    <div class="sidebar-sep"></div>
-    <div class="nav" id="nav-stats" onclick="showView('stats',this)"><span class="nav-icon">&#128202;</span>Statistics</div>
-    <div class="nav" id="nav-about" onclick="showView('about',this)"><span class="nav-icon">&#9881;</span>About</div>
-  </nav>
-  <main class="content">
-    <div class="stats-row">
-      <div class="stat accent"><div class="stat-val" id="s-total">--</div><div class="stat-label">Total Requests</div></div>
-      <div class="stat"><div class="stat-val" id="s-rps">0</div><div class="stat-label">Req / sec</div></div>
-      <div class="stat"><div class="stat-val" id="s-err">--</div><div class="stat-label">5xx Errors</div></div>
-      <div class="stat"><div class="stat-val" id="s-lat">--</div><div class="stat-label">Avg Latency ms</div></div>
+    <div class="nav active" onclick="showView('overview',this)" id="nav-overview">
+      <span class="nav-icon">&#9632;</span><span>Overview</span>
     </div>
-    <div class="alert-bar" id="error-alert">&#128308; <span id="error-alert-msg"></span></div>
-    <div id="view-live" class="view active">
+    <div class="nav" onclick="showView('traffic',this)" id="nav-traffic">
+      <span class="nav-icon">&#9889;</span><span>Traffic</span>
+    </div>
+    <div class="sidebar-sep"></div>
+    <div class="nav" onclick="showView('routes',this)" id="nav-routes">
+      <span class="nav-icon">&#8644;</span><span>Routes</span>
+    </div>
+    <div class="nav" onclick="showView('certs',this)" id="nav-certs">
+      <span class="nav-icon">&#128274;</span><span>Certificates</span>
+    </div>
+    <div class="sidebar-sep"></div>
+    <div class="nav" onclick="showView('stats',this)" id="nav-stats">
+      <span class="nav-icon">&#9641;</span><span>Analytics</span>
+    </div>
+    <div class="nav" onclick="showView('settings',this)" id="nav-settings">
+      <span class="nav-icon">&#9881;</span><span>Settings</span>
+    </div>
+    <div class="nav" onclick="showView('about',this)" id="nav-about">
+      <span class="nav-icon">&#9432;</span><span>About</span>
+    </div>
+  </nav>
+
+  <!-- Content -->
+  <main class="content">
+
+    <!-- ── Overview ── -->
+    <div id="view-overview" class="view active">
+      <div class="page-header">
+        <div><div class="page-title">Overview</div><div class="page-subtitle">System summary and recent activity</div></div>
+      </div>
+      <div id="overviewAlert" class="alert-bar">&#9888; Error rate spike detected</div>
+      <div class="stats-grid">
+        <div class="stat-card accent">
+          <div class="stat-val" id="ovTotalReq">—</div>
+          <div class="stat-label">Total Requests</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="ovErrors">—</div>
+          <div class="stat-label">5xx Errors</div>
+          <div class="stat-sub" id="ovErrorRate">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="ovAvgLat">—</div>
+          <div class="stat-label">Avg Latency</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="ovRoutes">—</div>
+          <div class="stat-label">Active Routes</div>
+          <div class="stat-sub" id="ovUptime">—</div>
+        </div>
+      </div>
       <div class="panel">
-        <div class="panel-head">&#9889; Live Request Feed <span class="count" id="feed-count"></span></div>
-        <div class="feed" id="feed"><div class="feed-empty">Waiting for requests...</div></div>
+        <div class="panel-head">&#9685; Requests / minute (live)</div>
+        <div class="panel-body"><canvas id="sparkChart" height="80"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">&#9889; Recent Traffic <span class="panel-head-right" id="feedCount">0 requests</span></div>
+        <div class="feed" id="overviewFeed"><div class="feed-empty">Waiting for traffic...</div></div>
       </div>
     </div>
+
+    <!-- ── Traffic ── -->
+    <div id="view-traffic" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Live Traffic</div><div class="page-subtitle">Real-time request feed</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          &#9889; Request Feed
+          <div class="panel-head-right">
+            <div class="filter-bar">
+              <input class="filter-input" id="filterHost" placeholder="filter by host..." oninput="applyFilters()">
+              <select class="filter-input" id="filterMethod" onchange="applyFilters()" style="width:90px">
+                <option value="">Method</option>
+                <option>GET</option><option>POST</option><option>PUT</option>
+                <option>DELETE</option><option>PATCH</option>
+              </select>
+              <select class="filter-input" id="filterStatus" onchange="applyFilters()" style="width:90px">
+                <option value="">Status</option>
+                <option value="2">2xx</option><option value="3">3xx</option>
+                <option value="4">4xx</option><option value="5">5xx</option>
+              </select>
+              <button class="pause-btn" id="pauseBtn" onclick="togglePause()">&#9646;&#9646; Pause</button>
+            </div>
+          </div>
+        </div>
+        <div class="feed" id="trafficFeed" style="max-height:600px"><div class="feed-empty">Waiting for traffic...</div></div>
+      </div>
+    </div>
+
+    <!-- ── Routes ── -->
     <div id="view-routes" class="view">
-      <div class="panel" style="margin-bottom:16px">
-        <div class="panel-head">&#10133; Add Route</div>
+      <div class="page-header">
+        <div><div class="page-title">Routes</div><div class="page-subtitle">Manage proxy routes</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">&#43; Add Route</div>
         <div class="panel-body">
           <div class="add-form">
-            <div class="field"><label>Hostname</label><input id="new-host" type="text" placeholder="api.example.com"></div>
-            <div class="field"><label>Backend Target</label><input id="new-target" type="text" placeholder="http://localhost:3000"></div>
-            <button class="btn btn-primary" id="add-btn" onclick="addRoute()">Add Route</button>
+            <div class="field">
+              <label>Hostname</label>
+              <input id="newHost" placeholder="api.example.com" autocomplete="off">
+            </div>
+            <div class="field">
+              <label>Backend Target</label>
+              <input id="newTarget" placeholder="http://localhost:3000" autocomplete="off">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end">
+              <label class="checkbox-field">
+                <input type="checkbox" id="newHTTPS">
+                <span>Enable HTTPS</span>
+              </label>
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button class="btn btn-primary" onclick="addRoute()">Add Route</button>
+            </div>
           </div>
         </div>
       </div>
       <div class="panel">
-        <div class="panel-head">&#8644; Routes <span class="count" id="route-count"></span></div>
-        <div id="routes-wrap" class="routes-wrap panel-body"><div class="feed-empty">Loading...</div></div>
-      </div>
-    </div>
-    <div id="view-stats" class="view">
-      <div class="panel">
-        <div class="panel-head">&#128202; Per-Route Statistics</div>
-        <div class="panel-body"><div class="route-stats-grid" id="stats-grid"><div class="feed-empty">Loading...</div></div></div>
-      </div>
-    </div>
-    <div id="view-about" class="view">
-      <div class="panel">
-        <div class="panel-head">&#9881; About Onyx</div>
-        <div class="panel-body">
-          <div class="about-grid" id="about-grid"><div class="feed-empty">Loading...</div></div>
-          <p style="margin-top:16px;font-size:12px;color:var(--muted)">
-            <a href="https://github.com/Elchi-dev/onyx" style="color:var(--accent)" target="_blank">github.com/Elchi-dev/onyx</a>
-            &nbsp;&middot;&nbsp; MIT License
-          </p>
+        <div class="panel-head">&#8644; All Routes <span class="panel-head-right" id="routeCount"></span></div>
+        <div class="rtable-wrap">
+          <table class="rtable">
+            <thead><tr>
+              <th>Host</th><th>Target</th><th>HTTPS</th><th>Status</th><th style="width:120px">Actions</th>
+            </tr></thead>
+            <tbody id="routeTable"></tbody>
+          </table>
         </div>
       </div>
     </div>
+
+    <!-- ── Certificates ── -->
+    <div id="view-certs" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Certificates</div><div class="page-subtitle">TLS certificate status per route</div></div>
+      </div>
+      <div id="certsEmpty" class="panel" style="display:none">
+        <div class="panel-body" style="text-align:center;padding:48px;color:var(--text2)">
+          No HTTPS routes configured. Enable HTTPS on a route to see certificates here.
+        </div>
+      </div>
+      <div class="cert-grid" id="certGrid"></div>
+    </div>
+
+    <!-- ── Analytics ── -->
+    <div id="view-stats" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Analytics</div><div class="page-subtitle">Request statistics per route</div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-wrap">
+          <div class="chart-title">Requests by Route (total)</div>
+          <canvas id="routeBarChart" class="chart-canvas"></canvas>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-title">Error Rate by Route (%)</div>
+          <canvas id="errorChart" class="chart-canvas"></canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">&#9641; Route Breakdown</div>
+        <div class="panel-body">
+          <div class="route-stats-grid" id="routeStatsGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Settings ── -->
+    <div id="view-settings" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Settings</div></div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">Change Password</div>
+        <div class="settings-desc">Update your dashboard login password.</div>
+        <div class="form-stack">
+          <div class="field"><label>Current Password</label><input type="password" id="pwCurrent" autocomplete="current-password"></div>
+          <div class="field"><label>New Password</label><input type="password" id="pwNew" autocomplete="new-password"></div>
+          <div class="field"><label>Confirm New Password</label><input type="password" id="pwConfirm" autocomplete="new-password"></div>
+          <div><button class="btn btn-primary" onclick="changePassword()">Update Password</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── About ── -->
+    <div id="view-about" class="view">
+      <div class="page-header">
+        <div><div class="page-title">About</div></div>
+      </div>
+      <div class="about-grid">
+        <div class="about-card"><div class="about-card-label">Version</div><div class="about-card-val" id="abVersion">—</div></div>
+        <div class="about-card"><div class="about-card-label">Uptime</div><div class="about-card-val" id="abUptime">—</div></div>
+        <div class="about-card"><div class="about-card-label">Started</div><div class="about-card-val" id="abStart">—</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">&#128279; Links</div>
+        <div class="panel-body">
+          <div class="about-links">
+            <a class="about-link" href="https://github.com/Elchi-dev/onyx" target="_blank">&#128279; GitHub</a>
+            <a class="about-link" href="https://github.com/Elchi-dev/onyx/releases" target="_blank">&#128196; Releases</a>
+            <a class="about-link" href="https://github.com/Elchi-dev/onyx/issues" target="_blank">&#128030; Issues</a>
+            <a class="about-link" href="https://github.com/Elchi-dev/onyx/blob/main/docs/configuration.md" target="_blank">&#128218; Docs</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
-<div class="toast-wrap" id="toasts"></div>
-<script>
-var rpsWindow = [];
-var prevErrors = 0;
 
+<div id="toasts"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+var ws = null;
+var wsReconnectTimer = null;
+var wsReconnectDelay = 1000;
+var allEvents = [];
+var paused = false;
+var filterHostVal = '';
+var filterMethodVal = '';
+var filterStatusVal = '';
+var sparkData = new Array(60).fill(0);
+var sparkChart = null;
+var routeBarChart = null;
+var errorChart = null;
+var reqCountWindow = [];
+
+// ── View switching ─────────────────────────────────────────────────────────
 function showView(name, el) {
-  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
-  document.querySelectorAll('.nav').forEach(function(n){n.classList.remove('active');});
+  document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+  document.querySelectorAll('.nav').forEach(function(n) { n.classList.remove('active'); });
   document.getElementById('view-' + name).classList.add('active');
   if (el) el.classList.add('active');
+  else { var n = document.getElementById('nav-' + name); if (n) n.classList.add('active'); }
+
   if (name === 'routes') loadRoutes();
-  if (name === 'stats')  loadStats();
-  if (name === 'about')  loadAbout();
+  if (name === 'certs') loadCerts();
+  if (name === 'stats') loadStats();
+  if (name === 'about') loadAbout();
 }
 
-function logout() {
-  fetch('/logout', {method:'POST'}).finally(function(){location.href='/login';});
-}
-
-function toast(msg, ok) {
-  if (ok === undefined) ok = true;
+// ── Toast notifications ────────────────────────────────────────────────────
+function toast(msg, type) {
   var el = document.createElement('div');
-  el.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
-  el.textContent = (ok ? '\u2713 ' : '\u2717 ') + msg;
+  el.className = 'toast ' + (type || 'info');
+  el.textContent = msg;
   document.getElementById('toasts').appendChild(el);
-  setTimeout(function(){el.remove();}, 3000);
+  setTimeout(function() {
+    el.style.animation = 'slideOut .2s ease forwards';
+    setTimeout(function() { el.remove(); }, 200);
+  }, 3000);
 }
 
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+// ── WebSocket ──────────────────────────────────────────────────────────────
+function connectWS() {
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(proto + '//' + location.host + '/ws');
 
-async function apiFetch(url, opts) {
-  opts = opts || {};
-  opts.headers = Object.assign({'Content-Type':'application/json'}, opts.headers || {});
-  var r = await fetch(url, opts);
-  if (r.status === 401) { location.href = '/login'; throw new Error('unauthorized'); }
-  if (!r.ok) { var j = await r.json().catch(function(){return {};}); throw new Error(j.error || r.statusText); }
-  return r.json();
-}
+  ws.onopen = function() {
+    wsReconnectDelay = 1000;
+    setWSDot('connected', 'Live');
+    clearTimeout(wsReconnectTimer);
+  };
 
-async function loadRoutes() {
-  var wrap = document.getElementById('routes-wrap');
-  try {
-    var data = await apiFetch('/api/routes');
-    var routes = data || [];
-    document.getElementById('route-count').textContent = routes.length + ' route' + (routes.length !== 1 ? 's' : '');
-    if (!routes.length) {
-      wrap.innerHTML = '<div class="feed-empty">No routes yet. Add one above.</div>';
-      return;
-    }
-    var rows = routes.map(function(r) {
-      var enabledLabel = r.Enabled ? 'active' : 'disabled';
-      var pillClass = r.Enabled ? 'pill-on' : 'pill-off';
-      var toggleIcon = r.Enabled ? '&#9646;&#9646;' : '&#9654;';
-      var toggleTitle = r.Enabled ? 'Disable' : 'Enable';
-      var safeHost = esc(r.Host);
-      var safeTarget = esc(r.Target);
-      return '<tr>' +
-        '<td class="mono">' + safeHost + '</td>' +
-        '<td class="mono" style="color:var(--muted)">' + safeTarget + '</td>' +
-        '<td><span class="pill ' + pillClass + '">' + enabledLabel + '</span></td>' +
-        '<td style="color:var(--muted);font-family:\'JetBrains Mono\',monospace;font-size:12px" id="rt-' + btoa(r.Host).replace(/=/g,'') + '">--</td>' +
-        '<td><div class="actions-cell">' +
-          '<button class="icon-btn" title="' + toggleTitle + '" onclick="toggleRoute(\'' + safeHost + '\',' + (!r.Enabled) + ')">' + toggleIcon + '</button>' +
-          '<button class="icon-btn del" title="Delete" onclick="deleteRoute(\'' + safeHost + '\')">&#128465;</button>' +
-        '</div></td>' +
-      '</tr>';
-    });
-    wrap.innerHTML = '<table class="rtable"><thead><tr><th>Host</th><th>Target</th><th>Status</th><th>Requests</th><th>Actions</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
-    apiFetch('/api/stats').then(function(s) {
-      if (s && s.per_route) {
-        s.per_route.forEach(function(rs) {
-          var id = 'rt-' + btoa(rs.Host).replace(/=/g,'');
-          var el = document.getElementById(id);
-          if (el) el.textContent = rs.Total.toLocaleString();
-        });
+  ws.onmessage = function(e) {
+    try {
+      var msg = JSON.parse(e.data);
+      if (msg.type === 'request') handleRequest(msg.payload);
+      if (msg.type === 'routes_changed') {
+        if (document.getElementById('view-routes').classList.contains('active')) loadRoutes();
+        if (document.getElementById('view-certs').classList.contains('active')) loadCerts();
+        loadOverview();
       }
-    }).catch(function(){});
-  } catch(e) {
-    wrap.innerHTML = '<div class="feed-empty">Failed to load routes.</div>';
+    } catch(ex) {}
+  };
+
+  ws.onerror = function() { setWSDot('connecting', 'Reconnecting'); };
+  ws.onclose = function() {
+    setWSDot('connecting', 'Disconnected');
+    wsReconnectTimer = setTimeout(connectWS, wsReconnectDelay);
+    wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000);
+  };
+}
+
+function setWSDot(state, label) {
+  var dot = document.getElementById('wsDot');
+  dot.className = 'ws-dot ' + state;
+  document.getElementById('wsLabel').textContent = label;
+}
+
+// ── Request handling ───────────────────────────────────────────────────────
+function handleRequest(r) {
+  // Track for sparkline.
+  reqCountWindow.push(Date.now());
+
+  allEvents.unshift(r);
+  if (allEvents.length > 500) allEvents.pop();
+
+  // Update overview counters.
+  loadOverview();
+
+  if (!paused) {
+    var row = buildFeedRow(r);
+    appendToFeed('overviewFeed', row, 50);
+    if (matchesFilter(r)) appendToFeed('trafficFeed', row.cloneNode(true), 200);
   }
+
+  // Update feed count.
+  document.getElementById('feedCount').textContent = allEvents.length + ' requests';
 }
 
-async function addRoute() {
-  var host   = document.getElementById('new-host').value.trim();
-  var target = document.getElementById('new-target').value.trim();
-  if (!host || !target) { toast('Host and target are required', false); return; }
-  var btn = document.getElementById('add-btn');
-  btn.disabled = true;
-  try {
-    await apiFetch('/api/routes', {method:'POST', body:JSON.stringify({host:host, target:target})});
-    document.getElementById('new-host').value = '';
-    document.getElementById('new-target').value = '';
-    toast('Route added: ' + host);
-    loadRoutes();
-  } catch(e) {
-    toast('Failed to add route: ' + e.message, false);
-  } finally {
-    btn.disabled = false;
-  }
-}
+function buildFeedRow(r) {
+  var now = new Date(r.timestamp);
+  var ts = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+  var latMs = r.latency_ms;
+  var latClass = latMs > 2000 ? 'lat vslow' : latMs > 500 ? 'lat slow' : 'lat';
+  var sc = String(r.status);
+  var scClass = sc[0] === '2' ? 'sc sc-2' : sc[0] === '3' ? 'sc sc-3' : sc[0] === '4' ? 'sc sc-4' : 'sc sc-5';
 
-async function toggleRoute(host, enabled) {
-  try {
-    await apiFetch('/api/routes/' + encodeURIComponent(host), {method:'PATCH', body:JSON.stringify({enabled:enabled})});
-    toast('Route ' + (enabled ? 'enabled' : 'disabled') + ': ' + host);
-    loadRoutes();
-  } catch(e) { toast('Failed to update route', false); }
-}
-
-async function deleteRoute(host) {
-  if (!confirm('Delete route for ' + host + '?')) return;
-  try {
-    await apiFetch('/api/routes/' + encodeURIComponent(host), {method:'DELETE'});
-    toast('Route deleted: ' + host);
-    loadRoutes();
-  } catch(e) { toast('Failed to delete route', false); }
-}
-
-async function loadStats() {
-  var grid = document.getElementById('stats-grid');
-  try {
-    var data = await apiFetch('/api/stats');
-    if (data.global) {
-      document.getElementById('s-total').textContent = data.global.TotalRequests.toLocaleString();
-      document.getElementById('s-err').textContent   = data.global.TotalErrors.toLocaleString();
-      document.getElementById('s-lat').textContent   = data.global.AvgLatency.toFixed(0);
-    }
-    if (!data.per_route || !data.per_route.length) {
-      grid.innerHTML = '<div class="feed-empty">No statistics yet.</div>';
-      return;
-    }
-    var maxTotal = Math.max.apply(null, data.per_route.map(function(r){return r.Total;}));
-    grid.innerHTML = data.per_route.map(function(r) {
-      var pct = maxTotal > 0 ? (r.Total / maxTotal * 100).toFixed(0) : 0;
-      var hasErr = r.Errors > 0;
-      return '<div class="rs-card">' +
-        '<div class="rs-host">' + esc(r.Host) + '</div>' +
-        '<div class="rs-metrics">' +
-          '<div><div class="rs-metric-val">' + r.Total.toLocaleString() + '</div><div class="rs-metric-label">Requests</div></div>' +
-          '<div><div class="rs-metric-val" style="' + (hasErr ? 'color:var(--red)' : '') + '">' + r.Errors + '</div><div class="rs-metric-label">Errors</div></div>' +
-          '<div><div class="rs-metric-val">' + r.AvgLatency.toFixed(0) + '</div><div class="rs-metric-label">Avg ms</div></div>' +
-        '</div>' +
-        '<div class="rs-bar"><div class="rs-bar-fill ' + (hasErr ? 'has-errors' : '') + '" style="width:' + pct + '%"></div></div>' +
-      '</div>';
-    }).join('');
-  } catch(e) {
-    grid.innerHTML = '<div class="feed-empty">Failed to load statistics.</div>';
-  }
-}
-
-async function loadAbout() {
-  var grid = document.getElementById('about-grid');
-  try {
-    var data = await apiFetch('/api/about');
-    var items = [
-      ['Version', data.version || 'dev'],
-      ['Uptime', data.uptime || '--'],
-      ['Started', data.start_time ? new Date(data.start_time).toLocaleString() : '--']
-    ];
-    grid.innerHTML = items.map(function(item) {
-      return '<div class="about-card"><div class="about-key">' + item[0] + '</div><div class="about-val">' + item[1] + '</div></div>';
-    }).join('');
-  } catch(e) {
-    grid.innerHTML = '<div class="feed-empty">Failed to load about info.</div>';
-  }
-}
-
-function fmtTime(ts) {
-  var d = new Date(ts);
-  return d.toLocaleTimeString('en-GB',{hour12:false}) + '.' + String(d.getMilliseconds()).padStart(3,'0');
-}
-function scClass(s) { return s>=500 ? 'sc-err' : s>=300 ? 'sc-redir' : 'sc-ok'; }
-function latClass(ms) { return ms>1000 ? 'very-slow' : ms>300 ? 'slow' : ''; }
-
-function addFeedRow(e) {
-  var feed = document.getElementById('feed');
-  var em = feed.querySelector('.feed-empty');
-  if (em) em.remove();
   var row = document.createElement('div');
   row.className = 'feed-row';
   row.innerHTML =
-    '<span class="ts">' + fmtTime(e.timestamp) + '</span>' +
-    '<span class="meth">' + esc(e.method) + '</span>' +
-    '<span class="hcol">' + esc(e.host) + '</span>' +
-    '<span class="pcol hide-mobile">' + esc(e.path) + '</span>' +
-    '<span class="sc ' + scClass(e.status) + '">' + e.status + '</span>' +
-    '<span class="lat ' + latClass(e.latency_ms) + '">' + e.latency_ms + 'ms</span>';
+    '<span class="ts">' + esc(ts) + '</span>' +
+    '<span class="meth">' + esc(r.method) + '</span>' +
+    '<span class="hcol">' + esc(r.host) + '</span>' +
+    '<span class="pcol">' + esc(r.path) + '</span>' +
+    '<span class="' + scClass + '">' + esc(sc) + '</span>' +
+    '<span class="' + latClass + '">' + latMs + 'ms</span>';
+  return row;
+}
+
+function appendToFeed(id, row, limit) {
+  var feed = document.getElementById(id);
+  var empty = feed.querySelector('.feed-empty');
+  if (empty) empty.remove();
   feed.insertBefore(row, feed.firstChild);
-  while (feed.children.length > 500) feed.removeChild(feed.lastChild);
-  rpsWindow.push(Date.now());
-  document.getElementById('feed-count').textContent = feed.children.length + ' events';
+  while (feed.children.length > limit) feed.removeChild(feed.lastChild);
 }
 
-setInterval(function() {
-  apiFetch('/api/stats').then(function(data) {
-    if (data && data.global) {
-      document.getElementById('s-total').textContent = data.global.TotalRequests.toLocaleString();
-      document.getElementById('s-err').textContent   = data.global.TotalErrors.toLocaleString();
-      document.getElementById('s-lat').textContent   = data.global.AvgLatency.toFixed(0);
-      if (data.global.TotalErrors > prevErrors + 5) {
-        var bar = document.getElementById('error-alert');
-        bar.classList.add('visible');
-        document.getElementById('error-alert-msg').textContent = 'Error spike: ' + data.global.TotalErrors + ' total 5xx errors';
+function matchesFilter(r) {
+  if (filterHostVal && r.host.indexOf(filterHostVal) < 0) return false;
+  if (filterMethodVal && r.method !== filterMethodVal) return false;
+  if (filterStatusVal && String(r.status)[0] !== filterStatusVal) return false;
+  return true;
+}
+
+function applyFilters() {
+  filterHostVal = document.getElementById('filterHost').value.toLowerCase();
+  filterMethodVal = document.getElementById('filterMethod').value;
+  filterStatusVal = document.getElementById('filterStatus').value;
+
+  var feed = document.getElementById('trafficFeed');
+  feed.innerHTML = '<div class="feed-empty">Waiting for traffic...</div>';
+  var filtered = allEvents.filter(matchesFilter);
+  filtered.slice(0, 200).forEach(function(r) { appendToFeed('trafficFeed', buildFeedRow(r), 200); });
+}
+
+function togglePause() {
+  paused = !paused;
+  var btn = document.getElementById('pauseBtn');
+  btn.textContent = paused ? '&#9654; Resume' : '&#9646;&#9646; Pause';
+  btn.className = paused ? 'pause-btn paused' : 'pause-btn';
+  if (paused) btn.innerHTML = '&#9654; Resume';
+  else btn.innerHTML = '&#9646;&#9646; Pause';
+}
+
+// ── Overview ───────────────────────────────────────────────────────────────
+function loadOverview() {
+  fetch('/api/stats').then(function(r) { return r.json(); }).then(function(d) {
+    var g = d.global || {};
+    document.getElementById('ovTotalReq').textContent = fmt(g.TotalRequests || 0);
+    document.getElementById('ovErrors').textContent = fmt(g.TotalErrors || 0);
+    var rate = g.TotalRequests > 0 ? ((g.TotalErrors / g.TotalRequests) * 100).toFixed(1) : '0.0';
+    document.getElementById('ovErrorRate').textContent = rate + '% error rate';
+    document.getElementById('ovAvgLat').textContent = Math.round(g.AvgLatency || 0) + 'ms';
+    document.getElementById('ovRoutes').textContent = g.RouteCount || 0;
+    document.getElementById('ovUptime').textContent = d.uptime || '—';
+
+    // Error spike alert.
+    var alertBar = document.getElementById('overviewAlert');
+    if (parseFloat(rate) > 10 && g.TotalRequests > 10) alertBar.classList.add('show');
+    else alertBar.classList.remove('show');
+  }).catch(function() {});
+}
+
+// ── Sparkline ──────────────────────────────────────────────────────────────
+function initSparkChart() {
+  var ctx = document.getElementById('sparkChart').getContext('2d');
+  sparkChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: sparkData.map(function() { return ''; }),
+      datasets: [{
+        data: sparkData,
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99,102,241,.08)',
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: { display: false },
+        y: { display: true, min: 0, grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#4a4a6a', font: { size: 10 }, maxTicksLimit: 4 } }
       }
-      prevErrors = data.global.TotalErrors;
     }
-  }).catch(function(){});
-}, 5000);
-
-setInterval(function() {
-  var cutoff = Date.now() - 1000;
-  rpsWindow = rpsWindow.filter(function(t){return t > cutoff;});
-  document.getElementById('s-rps').textContent = rpsWindow.length;
-}, 400);
-
-function connect() {
-  var proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(proto + '://' + location.host + '/ws');
-  var dot = document.getElementById('ws-dot');
-  var lbl = document.getElementById('ws-lbl');
-  ws.onopen = function() { dot.classList.add('live'); lbl.textContent = 'live'; };
-  ws.onmessage = function(msg) {
-    try {
-      var ev = JSON.parse(msg.data);
-      if (ev.type === 'request') { addFeedRow(ev.payload); rpsWindow.push(Date.now()); }
-      if (ev.type === 'routes_changed') {
-        if (document.getElementById('view-routes').classList.contains('active')) loadRoutes();
-      }
-    } catch(_) {}
-  };
-  ws.onclose = function() { dot.classList.remove('live'); lbl.textContent = 'reconnecting...'; setTimeout(connect, 3000); };
-  ws.onerror = function() { ws.close(); };
+  });
 }
 
-connect();
-apiFetch('/api/stats').then(function(data) {
-  if (data && data.global) {
-    document.getElementById('s-total').textContent = data.global.TotalRequests.toLocaleString();
-    document.getElementById('s-err').textContent   = data.global.TotalErrors.toLocaleString();
-    document.getElementById('s-lat').textContent   = data.global.AvgLatency.toFixed(0);
+function updateSparkline() {
+  var now = Date.now();
+  var oneSecAgo = now - 1000;
+  reqCountWindow = reqCountWindow.filter(function(t) { return t > now - 60000; });
+  var lastSecCount = reqCountWindow.filter(function(t) { return t > oneSecAgo; }).length;
+  sparkData.push(lastSecCount);
+  sparkData.shift();
+  if (sparkChart) {
+    sparkChart.data.datasets[0].data = sparkData.slice();
+    sparkChart.update('none');
   }
-}).catch(function(){});
+}
+
+// ── Routes ─────────────────────────────────────────────────────────────────
+function loadRoutes() {
+  fetch('/api/routes').then(function(r) { return r.json(); }).then(function(routes) {
+    var tbody = document.getElementById('routeTable');
+    tbody.innerHTML = '';
+    document.getElementById('routeCount').textContent = (routes ? routes.length : 0) + ' routes';
+    if (!routes || routes.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="padding:32px;text-align:center;color:var(--muted)">No routes yet. Add one above.</td></tr>';
+      return;
+    }
+    routes.forEach(function(r) {
+      var tr = document.createElement('tr');
+      var httpsPill = r.HTTPS
+        ? '<span class="pill pill-blue">&#128274; HTTPS</span>'
+        : '<span class="pill pill-muted">HTTP</span>';
+      var statusPill = r.Enabled
+        ? '<span class="pill pill-green">&#9679; Active</span>'
+        : '<span class="pill pill-muted">&#9679; Disabled</span>';
+      tr.innerHTML =
+        '<td class="mono">' + esc(r.Host) + '</td>' +
+        '<td class="mono" style="color:var(--text2)">' + esc(r.Target) + '</td>' +
+        '<td>' + httpsPill + '</td>' +
+        '<td>' + statusPill + '</td>' +
+        '<td><div class="actions">' +
+          '<label class="toggle" title="' + (r.Enabled ? 'Disable' : 'Enable') + '">' +
+            '<input type="checkbox" ' + (r.Enabled ? 'checked' : '') + ' onchange="toggleRoute(\'' + esc(r.Host) + '\',this.checked)">' +
+            '<span class="toggle-slider"></span>' +
+          '</label>' +
+          '<button class="icon-btn" title="Toggle HTTPS" onclick="toggleHTTPS(\'' + esc(r.Host) + '\',' + !r.HTTPS + ')">&#128274;</button>' +
+          '<button class="icon-btn del" title="Delete" onclick="deleteRoute(\'' + esc(r.Host) + '\')">&#128465;</button>' +
+        '</div></td>';
+      tbody.appendChild(tr);
+    });
+  }).catch(function() { toast('Failed to load routes', 'err'); });
+}
+
+function addRoute() {
+  var host = document.getElementById('newHost').value.trim();
+  var target = document.getElementById('newTarget').value.trim();
+  var https = document.getElementById('newHTTPS').checked;
+  if (!host || !target) { toast('Host and target are required', 'err'); return; }
+  fetch('/api/routes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ host: host, target: target, https: https })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.error) { toast(d.error, 'err'); return; }
+    document.getElementById('newHost').value = '';
+    document.getElementById('newTarget').value = '';
+    document.getElementById('newHTTPS').checked = false;
+    toast('Route added: ' + host, 'ok');
+    loadRoutes();
+  }).catch(function() { toast('Failed to add route', 'err'); });
+}
+
+function deleteRoute(host) {
+  if (!confirm('Delete route for ' + host + '?')) return;
+  fetch('/api/routes/' + encodeURIComponent(host), { method: 'DELETE' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.error) { toast(d.error, 'err'); return; }
+      toast('Route deleted: ' + host, 'ok');
+      loadRoutes();
+    }).catch(function() { toast('Failed to delete route', 'err'); });
+}
+
+function toggleRoute(host, enabled) {
+  fetch('/api/routes/' + encodeURIComponent(host), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: enabled })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.error) { toast(d.error, 'err'); return; }
+    toast((enabled ? 'Enabled' : 'Disabled') + ': ' + host, 'ok');
+    loadRoutes();
+  }).catch(function() { toast('Failed to update route', 'err'); });
+}
+
+function toggleHTTPS(host, https) {
+  fetch('/api/routes/' + encodeURIComponent(host), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ https: https })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.error) { toast(d.error, 'err'); return; }
+    toast((https ? 'HTTPS enabled' : 'HTTPS disabled') + ': ' + host, 'ok');
+    loadRoutes();
+    loadCerts();
+  }).catch(function() { toast('Failed to update route', 'err'); });
+}
+
+// ── Certificates ───────────────────────────────────────────────────────────
+function loadCerts() {
+  fetch('/api/certs').then(function(r) { return r.json(); }).then(function(certs) {
+    var grid = document.getElementById('certGrid');
+    var empty = document.getElementById('certsEmpty');
+    grid.innerHTML = '';
+    if (!certs || certs.length === 0) {
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+    certs.forEach(function(c) {
+      var card = document.createElement('div');
+      card.className = 'cert-card ' + c.status;
+      var statusPill = {
+        valid: '<span class="pill pill-green">&#10003; Valid</span>',
+        expiring_soon: '<span class="pill pill-yellow">&#9888; Expiring Soon</span>',
+        error: '<span class="pill pill-red">&#10005; Error</span>',
+        pending: '<span class="pill pill-muted">&#8635; Pending</span>'
+      }[c.status] || '<span class="pill pill-muted">' + c.status + '</span>';
+      var modePill = c.mode === 'acme'
+        ? '<span class="pill pill-blue">Let\'s Encrypt</span>'
+        : '<span class="pill pill-muted">Self-Signed</span>';
+      var expiry = c.expires_at
+        ? new Date(c.expires_at).toLocaleDateString()
+        : '—';
+      card.innerHTML =
+        '<div class="cert-host">' + esc(c.host) + '</div>' +
+        '<div class="cert-meta">' +
+          '<div class="cert-row"><span class="label">Status</span>' + statusPill + '</div>' +
+          '<div class="cert-row"><span class="label">Mode</span>' + modePill + '</div>' +
+          '<div class="cert-row"><span class="label">Expires</span><span class="val">' + expiry + '</span></div>' +
+        '</div>';
+      grid.appendChild(card);
+    });
+  }).catch(function() {});
+}
+
+// ── Analytics ──────────────────────────────────────────────────────────────
+function loadStats() {
+  fetch('/api/stats').then(function(r) { return r.json(); }).then(function(d) {
+    var routes = d.per_route || [];
+    var grid = document.getElementById('routeStatsGrid');
+    grid.innerHTML = '';
+
+    var maxTotal = Math.max.apply(null, routes.map(function(r) { return r.Total || 0; }));
+
+    routes.forEach(function(r) {
+      var card = document.createElement('div');
+      card.className = 'rs-card';
+      var errRate = r.Total > 0 ? ((r.Errors / r.Total) * 100).toFixed(1) : '0.0';
+      var fill = maxTotal > 0 ? Math.round((r.Total / maxTotal) * 100) : 0;
+      var hasErrors = r.Errors > 0;
+      card.innerHTML =
+        '<div class="rs-host">' + esc(r.Host) + '</div>' +
+        '<div class="rs-metrics">' +
+          '<div><div class="rs-val">' + fmt(r.Total || 0) + '</div><div class="rs-lbl">Requests</div></div>' +
+          '<div><div class="rs-val" style="color:' + (hasErrors ? 'var(--red)' : 'var(--green)') + '">' + (r.Errors || 0) + '</div><div class="rs-lbl">Errors</div></div>' +
+          '<div><div class="rs-val">' + Math.round(r.AvgLatency || 0) + 'ms</div><div class="rs-lbl">Avg Lat</div></div>' +
+        '</div>' +
+        '<div class="rs-bar"><div class="rs-fill ' + (hasErrors ? 'has-errors' : '') + '" style="width:' + fill + '%"></div></div>';
+      grid.appendChild(card);
+    });
+
+    // Charts.
+    var labels = routes.map(function(r) { return r.Host; });
+    var totals = routes.map(function(r) { return r.Total || 0; });
+    var errRates = routes.map(function(r) { return r.Total > 0 ? ((r.Errors / r.Total) * 100).toFixed(1) : 0; });
+
+    if (routeBarChart) routeBarChart.destroy();
+    var ctx1 = document.getElementById('routeBarChart').getContext('2d');
+    routeBarChart = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{ label: 'Requests', data: totals, backgroundColor: 'rgba(99,102,241,.7)', borderRadius: 4 }]
+      },
+      options: chartOpts('Requests')
+    });
+
+    if (errorChart) errorChart.destroy();
+    var ctx2 = document.getElementById('errorChart').getContext('2d');
+    errorChart = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{ label: 'Error %', data: errRates, backgroundColor: 'rgba(239,68,68,.7)', borderRadius: 4 }]
+      },
+      options: chartOpts('%')
+    });
+  }).catch(function() {});
+}
+
+function chartOpts(unit) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#9090b8', font: { size: 11 } } },
+      y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#9090b8', font: { size: 11 } }, beginAtZero: true }
+    }
+  };
+}
+
+// ── About ──────────────────────────────────────────────────────────────────
+function loadAbout() {
+  fetch('/api/about').then(function(r) { return r.json(); }).then(function(d) {
+    document.getElementById('abVersion').textContent = d.version || '—';
+    document.getElementById('abUptime').textContent = d.uptime || '—';
+    var start = d.start_time ? new Date(d.start_time).toLocaleString() : '—';
+    document.getElementById('abStart').textContent = start;
+  }).catch(function() {});
+}
+
+// ── Settings ───────────────────────────────────────────────────────────────
+function changePassword() {
+  var cur = document.getElementById('pwCurrent').value;
+  var nw = document.getElementById('pwNew').value;
+  var cf = document.getElementById('pwConfirm').value;
+  if (!cur || !nw) { toast('Fill in all fields', 'err'); return; }
+  if (nw !== cf) { toast('Passwords do not match', 'err'); return; }
+  if (nw.length < 8) { toast('Password must be at least 8 characters', 'err'); return; }
+  fetch('/api/settings/password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current: cur, 'new': nw })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.error) { toast(d.error, 'err'); return; }
+    toast('Password updated successfully', 'ok');
+    document.getElementById('pwCurrent').value = '';
+    document.getElementById('pwNew').value = '';
+    document.getElementById('pwConfirm').value = '';
+  }).catch(function() { toast('Failed to update password', 'err'); });
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function fmt(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return String(n);
+}
+function pad(n) { return n < 10 ? '0' + n : String(n); }
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+initSparkChart();
+connectWS();
+loadOverview();
+setInterval(loadOverview, 10000);
+setInterval(updateSparkline, 1000);
 </script>
 </body>
 </html>`
@@ -431,35 +921,41 @@ const loginHTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Onyx -- Sign in</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%237c6af7'/><text y='24' x='4' font-size='22' font-family='monospace' fill='white'>&#9670;</text></svg>">
+<title>Onyx — Sign in</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236366f1'/><text y='22' x='5' font-size='18' font-family='monospace' fill='white'>&#9670;</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap');
-:root{--bg:#0a0a0f;--surface:#0f0f18;--border:#1c1c2e;--accent:#7c6af7;--text:#e4e4ef;--muted:#555570;}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:grid;place-items:center;}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px 40px;width:360px;}
-.logo{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:var(--accent);margin-bottom:4px;}
-.logo span{color:#3ddc97;}
-.sub{color:var(--muted);font-size:13px;margin-bottom:28px;}
-label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
-input[type=password]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color .15s;}
-input[type=password]:focus{border-color:var(--accent);}
-.remember{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:var(--muted);cursor:pointer;}
-.remember input{width:14px;height:14px;accent-color:var(--accent);cursor:pointer;}
-button{width:100%;margin-top:20px;background:var(--accent);border:none;border-radius:8px;padding:12px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s;}
-button:hover{opacity:.85;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0c0c14;color:#e2e2f0;font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#111120;border:1px solid #232338;border-radius:14px;padding:40px;width:100%;max-width:380px;box-shadow:0 24px 64px rgba(0,0,0,.5)}
+.logo{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:#6366f1;text-align:center;margin-bottom:6px;letter-spacing:-1px}
+.logo-sub{text-align:center;font-size:13px;color:#4a4a6a;margin-bottom:32px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;color:#9090b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;font-weight:500}
+.field input{width:100%;background:#0c0c14;border:1px solid #232338;border-radius:8px;padding:11px 14px;color:#e2e2f0;font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+.field input:focus{border-color:#6366f1}
+.remember{display:flex;align-items:center;gap:8px;margin-bottom:22px;cursor:pointer}
+.remember input{accent-color:#6366f1;width:14px;height:14px}
+.remember span{font-size:13px;color:#9090b8}
+.btn{width:100%;background:#6366f1;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:500;font-family:'Inter',sans-serif;cursor:pointer;transition:background .15s}
+.btn:hover{background:#818cf8}
+.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;font-size:13px;color:#ef4444;margin-bottom:16px}
 </style>
 </head>
 <body>
 <div class="card">
-  <div class="logo">onyx<span>.</span></div>
-  <div class="sub">Dashboard -- sign in</div>
+  <div class="logo">&#9670; onyx</div>
+  <div class="logo-sub">Dashboard</div>
   <form method="POST" action="/login">
-    <label for="pw">Password</label>
-    <input type="password" id="pw" name="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autofocus autocomplete="current-password">
-    <label class="remember"><input type="checkbox" name="remember_me"> Keep me signed in for 7 days</label>
-    <button type="submit">Sign in &#8594;</button>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" name="password" autofocus autocomplete="current-password" required>
+    </div>
+    <label class="remember">
+      <input type="checkbox" name="remember_me">
+      <span>Keep me signed in for 7 days</span>
+    </label>
+    <button type="submit" class="btn">Sign in</button>
   </form>
 </div>
 </body>
@@ -470,35 +966,42 @@ const loginErrorHTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Onyx -- Sign in</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%237c6af7'/><text y='24' x='4' font-size='22' font-family='monospace' fill='white'>&#9670;</text></svg>">
+<title>Onyx — Sign in</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236366f1'/><text y='22' x='5' font-size='18' font-family='monospace' fill='white'>&#9670;</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap');
-:root{--bg:#0a0a0f;--surface:#0f0f18;--border:#1c1c2e;--accent:#7c6af7;--text:#e4e4ef;--muted:#555570;--red:#ff5370;}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:grid;place-items:center;}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px 40px;width:360px;}
-.logo{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:var(--accent);margin-bottom:4px;}
-.logo span{color:#3ddc97;}
-.sub{color:var(--muted);font-size:13px;margin-bottom:16px;}
-.err{background:rgba(255,83,112,.1);border:1px solid rgba(255,83,112,.3);border-radius:8px;padding:9px 14px;color:var(--red);font-size:12px;margin-bottom:18px;}
-label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
-input[type=password]{width:100%;background:var(--bg);border:1px solid rgba(255,83,112,.4);border-radius:8px;padding:11px 14px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;}
-.remember{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:var(--muted);cursor:pointer;}
-.remember input{width:14px;height:14px;accent-color:var(--accent);cursor:pointer;}
-button{width:100%;margin-top:20px;background:var(--accent);border:none;border-radius:8px;padding:12px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0c0c14;color:#e2e2f0;font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#111120;border:1px solid #232338;border-radius:14px;padding:40px;width:100%;max-width:380px}
+.logo{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:#6366f1;text-align:center;margin-bottom:6px;letter-spacing:-1px}
+.logo-sub{text-align:center;font-size:13px;color:#4a4a6a;margin-bottom:32px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;color:#9090b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;font-weight:500}
+.field input{width:100%;background:#0c0c14;border:1px solid #232338;border-radius:8px;padding:11px 14px;color:#e2e2f0;font-size:14px;outline:none;transition:border-color .15s}
+.field input:focus{border-color:#6366f1}
+.remember{display:flex;align-items:center;gap:8px;margin-bottom:22px;cursor:pointer}
+.remember input{accent-color:#6366f1;width:14px;height:14px}
+.remember span{font-size:13px;color:#9090b8}
+.btn{width:100%;background:#6366f1;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:500;font-family:'Inter',sans-serif;cursor:pointer;transition:background .15s}
+.btn:hover{background:#818cf8}
+.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;font-size:13px;color:#ef4444;margin-bottom:16px}
 </style>
 </head>
 <body>
 <div class="card">
-  <div class="logo">onyx<span>.</span></div>
-  <div class="sub">Dashboard -- sign in</div>
-  <div class="err">&#9888; Incorrect password. Please try again.</div>
+  <div class="logo">&#9670; onyx</div>
+  <div class="logo-sub">Dashboard</div>
+  <div class="error">Incorrect password. Please try again.</div>
   <form method="POST" action="/login">
-    <label for="pw">Password</label>
-    <input type="password" id="pw" name="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autofocus autocomplete="current-password">
-    <label class="remember"><input type="checkbox" name="remember_me"> Keep me signed in for 7 days</label>
-    <button type="submit">Sign in &#8594;</button>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" name="password" autofocus autocomplete="current-password" required>
+    </div>
+    <label class="remember">
+      <input type="checkbox" name="remember_me">
+      <span>Keep me signed in for 7 days</span>
+    </label>
+    <button type="submit" class="btn">Sign in</button>
   </form>
 </div>
 </body>
@@ -508,23 +1011,25 @@ const loginRateLimitHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Onyx -- Too Many Attempts</title>
+<title>Onyx — Too Many Attempts</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{background:#0a0a0f;color:#e4e4ef;font-family:Inter,sans-serif;min-height:100vh;display:grid;place-items:center;}
-.card{background:#0f0f18;border:1px solid #1c1c2e;border-radius:14px;padding:36px 40px;width:360px;text-align:center;}
-.icon{font-size:36px;margin-bottom:12px;}
-h2{font-size:16px;margin-bottom:8px;}
-p{color:#555570;font-size:13px;line-height:1.6;}
-a{color:#7c6af7;text-decoration:none;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0c0c14;color:#e2e2f0;font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#111120;border:1px solid #232338;border-radius:14px;padding:40px;width:100%;max-width:380px;text-align:center}
+.icon{font-size:40px;margin-bottom:16px}
+h1{font-size:20px;font-weight:600;margin-bottom:8px;color:#ef4444}
+p{font-size:13px;color:#9090b8;line-height:1.6}
+.back{display:inline-block;margin-top:24px;color:#6366f1;font-size:13px;text-decoration:none}
+.back:hover{text-decoration:underline}
 </style>
 </head>
 <body>
 <div class="card">
   <div class="icon">&#128274;</div>
-  <h2>Too Many Attempts</h2>
-  <p>Too many failed login attempts from your IP.<br>Please wait 60 seconds before trying again.</p>
-  <p style="margin-top:16px"><a href="/login">&#8592; Back to login</a></p>
+  <h1>Too Many Attempts</h1>
+  <p>Login attempts exceeded. Please wait 60 seconds before trying again.</p>
+  <a class="back" href="/login">&#8592; Back to login</a>
 </div>
 </body>
 </html>`

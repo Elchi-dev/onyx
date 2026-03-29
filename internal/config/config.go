@@ -35,6 +35,7 @@ type RouteConfig struct {
 	Host      string          `toml:"host"`
 	Target    string          `toml:"target"`
 	Enabled   bool            `toml:"enabled"`
+	HTTPS     bool            `toml:"https"`
 	RateLimit RateLimitConfig `toml:"rate_limit"`
 }
 

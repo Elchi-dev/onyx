@@ -166,7 +166,7 @@ func (w *Wizard) stepRoute(db *database.DB) error {
 		return nil
 	}
 
-	if err := db.UpsertRoute(host, target, true); err != nil {
+	if err := db.UpsertRoute(host, target, true, false); err != nil {
 		return fmt.Errorf("saving route: %w", err)
 	}
 	fmt.Printf("  ✓ Route %s → %s saved.\n", host, target)
