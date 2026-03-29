@@ -317,9 +317,9 @@ func (d *Dashboard) handleStatsAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOK(w, map[string]any{
-		"global":    global,
-		"per_route": perRoute,
-		"uptime":    d.stats.uptimeString(),
+		"global":      global,
+		"per_route":   perRoute,
+		"uptime":      d.stats.uptimeString(),
 		"req_per_min": d.stats.reqPerMin(),
 	})
 }
