@@ -3,6 +3,8 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -58,16 +60,25 @@ func runStart(configPath string, dev bool, version string) error {
 	return nil
 }
 
-// needsSetup returns true when there is no usable config or database yet.
+// needsSetup returns true when no config file can be found in standard locations.
+// It does a simple file existence check to avoid instantiating the full App
+// (which would cause double-logging and unnecessary DB connections).
 func needsSetup(configPath string) bool {
 	if configPath != "" {
+		// User provided a path explicitly -- honour it, don't run setup.
 		return false
 	}
-	_, err := app.NewFromConfigPath("", false, "")
-	if err != nil {
-		return true
+	candidates := []string{"onyx.toml", "/etc/onyx/onyx.toml"}
+	if home, err := os.UserHomeDir(); err == nil {
+		candidates = append(candidates,
+			filepath.Join(home, ".config", "onyx", "onyx.toml"))
 	}
-	return false
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return false // config found
+		}
+	}
+	return true // no config anywhere
 }
 
 // friendlyError converts low-level errors into helpful user-facing messages.

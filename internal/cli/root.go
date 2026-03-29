@@ -18,6 +18,7 @@ func NewRootCommand(version string) *cobra.Command {
 		newStatusCommand(),
 		newValidateCommand(),
 		newRouteCommand(),
+		newUpdateCommand(),
 	)
 	return root
 }

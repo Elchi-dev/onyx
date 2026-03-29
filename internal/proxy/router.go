@@ -54,7 +54,15 @@ func New(log *slog.Logger, eventHandler EventHandler) *Router {
 	}
 }
 
-// AddRoute registers a host → target proxy route.
+// SetEventHandler replaces the event handler after construction.
+// Used to break the circular dependency between proxy and dashboard during wiring.
+func (r *Router) SetEventHandler(h EventHandler) {
+	if h != nil {
+		r.eventHandler = h
+	}
+}
+
+// AddRoute registers a host -> target proxy route.
 // Calling AddRoute with an existing host replaces the route atomically.
 func (r *Router) AddRoute(host, target string) error {
 	targetURL, err := url.Parse(target)

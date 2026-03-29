@@ -1,6 +1,6 @@
 // Package app is the dependency wiring layer for Onyx.
 // It owns the lifecycle of all major components and connects them together.
-// CLI commands only need to know about app.App — not individual internals.
+// CLI commands only need to know about app.App -- not individual internals.
 package app
 
 import (
@@ -43,10 +43,16 @@ func New(cfg *config.Config, log *slog.Logger, version string) (*App, error) {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
-	dash := dashboard.New(log, db)
+	// Create router first (with no event handler yet) so we can pass it to
+	// the dashboard as the RouteManager. The event handler is wired after.
+	router := proxy.New(log, nil)
+
+	// Dashboard gets the router so it can add/remove routes live from the UI.
+	dash := dashboard.New(log, db, router)
 	dash.SetVersion(version)
 
-	router := proxy.New(log, dash.BroadcastRequest)
+	// Now wire the event handler: proxy events -> dashboard broadcast.
+	router.SetEventHandler(dash.BroadcastRequest)
 
 	// Load routes from TOML config.
 	for _, r := range cfg.Routes {
@@ -73,14 +79,7 @@ func New(cfg *config.Config, log *slog.Logger, version string) (*App, error) {
 		"database", len(dbRoutes),
 	)
 
-	return &App{
-		cfg:     cfg,
-		log:     log,
-		db:      db,
-		dash:    dash,
-		router:  router,
-		version: version,
-	}, nil
+	return &App{cfg: cfg, log: log, db: db, dash: dash, router: router, version: version}, nil
 }
 
 // Run starts all servers and blocks until SIGTERM or SIGINT.
@@ -142,7 +141,7 @@ func (a *App) Close() error {
 func (a *App) DB() *database.DB { return a.db }
 
 // proxyHandler builds the middleware-wrapped proxy handler.
-// Stack (outermost first): Recovery → BodyLimit → RequestLogger → SecureHeaders → RateLimit → Router
+// Stack (outermost first): Recovery -> BodyLimit -> RequestLogger -> SecureHeaders -> RateLimit -> Router
 func (a *App) proxyHandler() http.Handler {
 	globalLimiter := ratelimit.New(1000, 500)
 	return middleware.Chain(
@@ -194,5 +193,5 @@ func findConfig() (string, error) {
 			return p, nil
 		}
 	}
-	return "", fmt.Errorf("no onyx.toml found — run 'onyx setup' first")
+	return "", fmt.Errorf("no onyx.toml found -- run 'onyx setup' first")
 }
