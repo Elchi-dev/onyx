@@ -1,0 +1,17 @@
+Package: onyx
+Version: 0.0.0~rc0
+Architecture: amd64
+Maintainer: Elchi-dev <elchi@example.com>
+Installed-Size: 13317
+Filename: pool/main/o/onyx/onyx_0.1.2_amd64.deb
+Size: 5755702
+MD5sum: 501f2145ecefdc40da560c5df96d3e36
+SHA1: 055159048772bde237e5cea3953a6ea81f8cad57
+SHA256: 0c2be7964235973b75e54b03211e2210c4d27aa764e00ec00d8884c7fad845ca
+Section: net
+Priority: optional
+Homepage: https://github.com/Elchi-dev/onyx
+Description: Onyx is a modular reverse proxy with a live WebSocket dashboard.
+ It routes HTTP traffic by hostname, supports rate limiting, traffic
+ splitting, and a plugin API.
+

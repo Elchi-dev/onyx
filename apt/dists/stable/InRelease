@@ -1,0 +1,31 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Origin: Onyx Repository
+Label: Onyx
+Suite: stable
+Codename: stable
+Architectures: amd64 arm64
+Components: main
+Description: Modular reverse proxy with a live dashboard
+MD5Sum:
+ fda144723ab58d7241e3974cc93163d8 594 main/binary-amd64/Packages
+SHA256:
+ 155d72f2a58a0db4cdeeb90937e38fbe1fe643ed61bb89fbc4c32bcce6d73764 594 main/binary-amd64/Packages
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEE13lBh4wyIYgS7Mi49NsMPdTvDEIFAmnJCEEACgkQ9NsMPdTv
+DEI5vxAAr/jKU6Os4a2lKjkQS7q9CytP6BwNEQNOKjf0OOPBEs6DzVuUSzOG6SqT
+OqVT18Z6rGIgvWEA3vEcIrDK9IwsoRWYvRQ0CGcuwEEv+uQHA/b6LN4IOXD2xAre
+t1UNxSklkA8SR4p7rGUy7bNZLdXWD4f7lrcMPt6lEo0rl5x6UqMGzdn5asMJe7l+
+NxmH8OEUonZFxhwFcXEHPZr1f6eaaHdsiS3SOOFdizy5Oyg5Z7dT7qzTq9u9VWx6
+ni3JYlN1AAXynJfc9e0I/ahGIfwUDiAnGaHLy/FFfn7H53wox6PIUJEukIajycc4
+8spfoaNUnF34CIwV+ixp25jxQ7SVQpIAo7B92c+IE4APlCcngeYOdzxCsFvt0izb
+1nmOCCD8EBCHJ6zIySU+MI9n3RzTZZFhsRqPwEmD6pPyARFFVFb/9ciGhzZp3Elh
+aMhBdspXg2KvtdJkS41d5GvaNmidTLti2QQHHbVKSSSNr301zJYf3VYsOSRYIw70
+gDZekvzd8G89LmTGVb7kuy1QU+IOXxflId+mKbggbVfpj0dspHN1tuGIoXflP4Fl
+hhzsMcceNE623ej/jtiRWT7easfPu2ES+kNKzwk31Zs3Lo2+yYr/sEydChjhAnuI
+glgg6hleKv8PaY8hP5J/udP+vJ7sgC679J4OTcAtuPUgY4tg+Xs=
+=VKRi
+-----END PGP SIGNATURE-----

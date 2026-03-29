@@ -1,0 +1,11 @@
+Origin: Onyx Repository
+Label: Onyx
+Suite: stable
+Codename: stable
+Architectures: amd64 arm64
+Components: main
+Description: Modular reverse proxy with a live dashboard
+MD5Sum:
+ fda144723ab58d7241e3974cc93163d8 594 main/binary-amd64/Packages
+SHA256:
+ 155d72f2a58a0db4cdeeb90937e38fbe1fe643ed61bb89fbc4c32bcce6d73764 594 main/binary-amd64/Packages
