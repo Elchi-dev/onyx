@@ -189,11 +189,12 @@ open http://localhost:8080
 | ⏱️ Backend connection + response timeouts | ✅ v0.1.1 |
 | ♻️ TCP connection pooling to backends | ✅ v0.1.1 |
 | ✅ `onyx validate` — config check | ✅ v0.1.1 |
-| ✅ `onyx update` — self-update from GitHub | ✅ v0.1.2 |
 | 📦 apt / .deb packaging | ✅ v0.1.1 |
 | 📦 rpm packaging | ✅ v0.1.1 |
 | 📦 AUR (Arch) package | ✅ v0.1.1 |
 | 📱 Responsive mobile layout | ✅ v0.1.1 |
+| 🔄 Live route updates (no restart needed) | ✅ v0.1.2 |
+| ⬆️ Self-update via `onyx update` | ✅ v0.1.2 |
 | 🔒 Automatic HTTPS (Let's Encrypt) | 📅 v0.2.0 |
 | ♻️ Config hot-reload | 📅 v0.3.0 |
 | 📦 Homebrew tap | 📅 v0.3.0 |
@@ -208,7 +209,7 @@ onyx start [--config PATH] [--dev]    Start proxy + dashboard
 onyx setup                            Interactive first-time setup
 onyx validate [--config PATH]         Check config without starting
 onyx status [--url URL]               Check if Onyx is running
-onyx update [--check] [--force]       Update to the latest release
+onyx update [--check] [--force]       Update Onyx to the latest release
 onyx route add --host H --target T    Add a proxy route
 onyx route list                       List all routes
 onyx route remove <host>              Remove a route

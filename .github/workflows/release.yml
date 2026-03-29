@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      - name: Run tests
+        run: go test ./... -race -count=1
+
+      - name: Set version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Build all platforms
+        run: |
+          mkdir -p dist
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          LDFLAGS="-X main.version=${VERSION} -s -w"
+
+          GOOS=linux   GOARCH=amd64  go build -buildvcs=false -ldflags "$LDFLAGS" -o dist/onyx-linux-amd64   ./cmd/onyx
+          GOOS=linux   GOARCH=arm64  go build -buildvcs=false -ldflags "$LDFLAGS" -o dist/onyx-linux-arm64   ./cmd/onyx
+          GOOS=darwin  GOARCH=amd64  go build -buildvcs=false -ldflags "$LDFLAGS" -o dist/onyx-darwin-amd64  ./cmd/onyx
+          GOOS=darwin  GOARCH=arm64  go build -buildvcs=false -ldflags "$LDFLAGS" -o dist/onyx-darwin-arm64  ./cmd/onyx
+          GOOS=windows GOARCH=amd64  go build -buildvcs=false -ldflags "$LDFLAGS" -o dist/onyx-windows-amd64.exe ./cmd/onyx
+
+          chmod +x dist/onyx-linux-* dist/onyx-darwin-*
+
+      - name: Build .deb package
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          # Strip leading 'v' for deb version
+          DEB_VERSION="${VERSION#v}"
+          sed "s/^version:.*/version: \"${DEB_VERSION}\"/" nfpm.yaml > nfpm-release.yaml
+          nfpm package --config nfpm-release.yaml --packager deb --target dist/
+          rm nfpm-release.yaml
+
+      - name: Build .rpm package
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          DEB_VERSION="${VERSION#v}"
+          sed "s/^version:.*/version: \"${DEB_VERSION}\"/" nfpm.yaml > nfpm-release.yaml
+          nfpm package --config nfpm-release.yaml --packager rpm --target dist/
+          rm nfpm-release.yaml
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Extract release notes from CHANGELOG
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          # Extract the section for this version from CHANGELOG.md
+          NOTES=$(awk "/^## \[${VERSION}\]/,/^## \[/" CHANGELOG.md | head -n -2 | tail -n +2)
+          # Write to file to preserve newlines
+          echo "$NOTES" > release_notes.md
+          cat release_notes.md
+
+      - name: Determine if pre-release
+        id: prerelease
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          if [[ "$VERSION" == *"-"* ]]; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Onyx ${{ steps.version.outputs.VERSION }}"
+          body_path: release_notes.md
+          prerelease: ${{ steps.prerelease.outputs.IS_PRERELEASE }}
+          files: |
+            dist/onyx-linux-amd64
+            dist/onyx-linux-arm64
+            dist/onyx-darwin-amd64
+            dist/onyx-darwin-arm64
+            dist/onyx-windows-amd64.exe
+            dist/*.deb
+            dist/*.rpm
+            dist/checksums.txt

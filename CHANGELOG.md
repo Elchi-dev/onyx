@@ -9,41 +9,38 @@ Format: [Keep a Changelog](https://keepachangelog.com/) · Versioning: [SemVer](
 
 ---
 
-## [v0.1.2] — 2025
+## [v0.1.2] — 2026-03-29
 
 ### Fixed
 
-- **Dashboard route management** — routes added, deleted, or toggled via the
-  dashboard UI now take effect in the live proxy router immediately, without
-  requiring a restart. Previously they were saved to the database but the
-  running proxy was never updated.
-- **Double logging on startup** — `onyx start` was instantiating the full App
-  (including database and all routes) twice during the setup check. Replaced
-  with a lightweight file-existence check so routes are only logged once.
-- **`html.go` build error** — JavaScript template literals (backticks) inside
-  Go raw string constants were terminating the string early, causing a cascade
-  of parse errors. Rewrote all JS to use string concatenation.
-- **`middleware/ratelimit.go` unused import** — removed unused `"net/http"` import.
-- **Deprecated `ssh/terminal`** — replaced `golang.org/x/crypto/ssh/terminal`
-  (removed in newer x/crypto) with `golang.org/x/term`.
-- **`cli/validate.go` undefined `findConfig`** — `findConfig` was defined in
-  `internal/app` but called from `internal/cli`, a different package. Added a
-  local `findConfigPath()` to `validate.go` to avoid the cross-package call.
-- **VCS stamping error on fresh clone** — added `-buildvcs=false` to all
-  Makefile build targets so the build never fails before `git init` is run.
+- **Live route wiring** — routes added or removed via the dashboard are now
+  immediately active in the running proxy without a restart. Previously the
+  router was never notified of dashboard changes; a new `RouteManager` interface
+  and `SetEventHandler()` method wire the dashboard directly to the proxy router.
+- **Double startup logging** — routes were logged twice on start because
+  `needsSetup()` in `start.go` instantiated the full app just to check for a
+  config file. Replaced with a simple file-existence check.
+- **`setcap` preserved on deploy** — `scripts/dev/deploy-pi.sh` now runs
+  `sudo setcap cap_net_bind_service=+ep` automatically after copying the binary,
+  so port 80 binding survives every redeploy without a manual step.
 
 ### Added
 
-- **`onyx update`** — new command that checks the GitHub releases API for a
-  newer version and replaces the current binary atomically. Supports
-  `--check` (check only, no install) and `--force` (re-install same version).
-- **`scripts/dev/release.sh`** — developer release script. Runs tests,
-  cross-compiles all 5 platform binaries, builds `.deb` and `.rpm`, generates
-  `checksums.txt`, opens the editor for the changelog, commits, tags, and
-  pushes. GitHub Actions publishes the actual GitHub Release on tag push.
-- **`scripts/dev/swap.sh`** — quickly replace project files from a zip without
-  touching `scripts/dev/`, `.git/`, `build/`, `go.sum`, or `.vscode/`. Shows
-  a dry-run diff before applying and runs `go mod tidy` + `make build` after.
+- **`onyx update`** — new CLI command that checks the GitHub Releases API for a
+  newer version, downloads the correct binary for the current OS and
+  architecture, and replaces the running binary atomically via `os.Rename()`.
+  Supports `--check` (print latest version without updating) and `--force`
+  (re-install even if already on the latest version).
+
+### Developer
+
+- **`scripts/dev/swap.sh`** — replaces project files from a zip while
+  preserving `scripts/dev/`, `.git/`, `build/`, `go.sum`, and `.vscode/`.
+  Accepts the zip path as an argument, shows a diff preview, asks for
+  confirmation, then runs `go mod tidy` and `make build` automatically.
+- **`scripts/dev/release.sh`** — local release helper. Runs the test suite,
+  stamps `CHANGELOG.md` with the version and date, opens `$EDITOR` for release
+  notes, commits, tags, and pushes. GitHub Actions does the rest.
 
 ---
 
@@ -51,56 +48,81 @@ Format: [Keep a Changelog](https://keepachangelog.com/) · Versioning: [SemVer](
 
 ### Security
 
-- Login rate limiting (max 5 attempts/min per IP)
-- WebSocket origin validation
-- Request body size limit (10 MiB default)
-- Session persistence in SQLite (survives restarts)
-- Backend connection + response timeouts
-- TCP connection pooling
-- Friendly port-permission error messages
+- **Login rate limiting** — max 5 attempts per minute per IP on the `/login`
+  endpoint. Excess attempts receive a 429 page with a `Retry-After` header.
+- **WebSocket origin validation** — the WebSocket upgrader now rejects
+  connections from a different origin than the dashboard's own host, preventing
+  cross-site WebSocket hijacking.
+- **Request body size limit** — incoming proxy requests are capped at 10 MiB by
+  default (configurable). Prevents runaway request bodies from holding goroutines.
+- **Session persistence** — dashboard sessions are now stored in SQLite instead
+  of an in-memory map. Sessions survive server restarts and are cleaned up hourly.
+- **Backend connection timeouts** — the proxy transport now enforces a 10-second
+  dial timeout, 60-second response header timeout, and 10-second TLS handshake
+  timeout. A slow or unresponsive backend can no longer hang a goroutine
+  indefinitely.
+- **TCP connection pooling** — the proxy reuses backend connections (max 200
+  idle, 20 per host, 90-second idle timeout), significantly reducing latency
+  and resource usage under load.
+- **Friendly port-permission errors** — binding port 80/443 without sufficient
+  privileges now prints a clear, actionable error instead of a raw syscall error.
 
 ### Dashboard
 
-- Route management UI (add, enable/disable, delete from browser)
-- Server-side persistent statistics (survive page refresh)
-- Per-route analytics with request/error/latency breakdown
-- Error spike alert bar
-- "Remember me" login option (7-day session)
-- Logout button
-- Favicon
-- Mobile responsive layout
-- WebSocket auto-reconnect
-- `routes_changed` event syncs all open tabs
+- **Route management UI** — add, enable/disable, and delete proxy routes
+  directly from the browser. No terminal required after initial setup.
+- **Server-side persistent statistics** — request counts, error counts, and
+  average latency are stored in SQLite and survive page refreshes and restarts.
+- **Per-route analytics** — the Statistics view shows a breakdown card per
+  route with request count, error count, average latency, and a relative
+  traffic bar.
+- **Error spike alert** — a red alert bar appears at the top when 5xx errors
+  spike significantly.
+- **"Remember me" login option** — checking "Keep me signed in" extends the
+  session from 24 hours to 7 days.
+- **Logout button** — header now includes a sign-out action that deletes the
+  session from the database.
+- **Favicon** — inline SVG favicon, no external requests.
+- **Mobile responsive layout** — the dashboard is usable on phones and tablets.
+- **WebSocket auto-reconnect** — dashboard reconnects automatically with
+  exponential backoff if the connection drops.
+- **`routes_changed` WebSocket event** — all connected dashboard tabs refresh
+  their route list automatically when a route is added, removed, or toggled.
 
 ### CLI
 
-- `onyx validate` — validate config without starting
+- **`onyx validate`** — new command that parses and validates the config file
+  without starting any servers. Shows parsed ports, routes, and their status.
 
 ### Packaging
 
-- AUR `PKGBUILD` + `onyx.install`
-- Full install table in README (9 methods)
+- **AUR package** (`PKGBUILD` + `onyx.install`) for Arch Linux / Manjaro /
+  EndeavourOS. Install with `yay -S onyx` or `paru -S onyx`.
+- **README** — full install table covering apt, dnf/rpm, AUR, Homebrew,
+  curl installer, Docker, binary download, and build from source.
 
 ---
 
 ## [v0.1.0-early] — 2025
 
-First early-access release.
+First early-access release. Core architecture complete and functional.
 
 ### Added
 
-- Reverse proxy core (host-based HTTP routing)
+- Reverse proxy core — host-based HTTP routing
 - Live WebSocket dashboard
-- Dashboard auth (bcrypt + sessions)
+- Dashboard auth (bcrypt + session cookies)
 - Interactive setup wizard
-- SQLite storage
+- SQLite storage (zero external dependencies)
 - TOML configuration
 - Per-IP rate limiting (token bucket)
 - Weighted traffic splitting
-- Plugin API
-- Graceful shutdown
-- Universal install script
-- Systemd service
+- Plugin API (composable middleware)
+- Graceful shutdown (SIGTERM / SIGINT)
+- `scripts/install.sh` — universal installer
+- Systemd service with capability-based port binding
+- CI workflow (test + lint)
+- Release workflow (cross-compile + GitHub Release + .deb)
 
 ---
 
