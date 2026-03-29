@@ -1,7 +1,7 @@
 # nfpm.yaml — package metadata for building .deb/.rpm with nfpm
 # https://nfpm.goreleaser.com/configuration/
 name: onyx
-arch: amd64
+arch: "${ARCH}"
 platform: linux
 version: "${ONYX_VERSION}"
 section: net
@@ -15,7 +15,7 @@ homepage: https://github.com/Elchi-dev/onyx
 license: MIT
 
 contents:
-  - src: ./dist/onyx-linux-amd64
+  - src: ./dist/onyx-linux-${ARCH}
     dst: /usr/local/bin/onyx
     file_info:
       mode: 0755
