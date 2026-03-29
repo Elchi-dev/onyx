@@ -23,7 +23,7 @@ func newSetupCommand() *cobra.Command {
 				return err
 			}
 			fmt.Printf("\n  Config saved to: %s\n", path)
-			fmt.Println("  Run 'onyx start' to launch.\n")
+			fmt.Println("  Run 'onyx start' to launch.")
 			return nil
 		},
 	}
