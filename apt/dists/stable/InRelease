@@ -8,24 +8,24 @@ Codename: stable
 Architectures: amd64 arm64
 Components: main
 Description: Modular reverse proxy with a live dashboard
-Date: Sun, 29 Mar 2026 13:15:18 +0200
+Date: Sun, 29 Mar 2026 11:17:51 +0000
 SHA256:
  155d72f2a58a0db4cdeeb90937e38fbe1fe643ed61bb89fbc4c32bcce6d73764 594 main/binary-amd64/Packages
- 155d72f2a58a0db4cdeeb90937e38fbe1fe643ed61bb89fbc4c32bcce6d73764 594 main/binary-arm64/Packages
+ 40189a667e0f0d7b6023c3d836663a92fcc293ff0e20e4ffea2b870e5c9fb2b0 594 main/binary-arm64/Packages
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCgAdFiEE13lBh4wyIYgS7Mi49NsMPdTvDEIFAmnJCcwACgkQ9NsMPdTv
-DEKanhAAxK0v+nqtg/aAx246exeZnJtxQ2NMbudnNeZ/pSDPmmN7ZNZYa+lYfiGa
-7tvA37LdGdNwUVYY2VEj8OuBN1s2qJadksiqQg6kiI+pWp+V26+SQzKn3/kDdF9b
-uonKpBzA0bKqeHbwPJdrAqioC0FihvGUJaAsF3tb+JMTNZRZLKHplaHgK6MsisWC
-SIYbrewvUr2D/YZ3OE4xzTM9knN/3cUIXpW/EduvJATluFgeUSVjuBh7VZ70LAxw
-ijSqbpv/PshexFuESXrVOYA2qGjYVMFX9aPd20gkKkPo6n40tFh92kkItcWUh2c8
-UyCVLPFxyv3pjSsYoTw37SgQWWdTY2ePUhfXzIu8kwFu/xej3cT7TltzLUg0Hx9Q
-6Jn6KvBeAq6B3UiVxoSf+NsOtcnJewIfEYLN26PaSxyGNkvCLxn1gIFunq9Wz0Q9
-gs2fU/DRjnKwnOPDPM+FDNlOXBHeZ+4zBEA/vrE5hDXLcnzgRlB3LUnK7seaqUCs
-aUChXgradc493W/seEHBjQb8Rko0sxKqw6wnERl+IML71oMwwFQeIDbWKBxJ4thg
-T75EMchOEjKhnOgTLkfNnmPdv4I/2IrhW4S2f16KdGe9f1KZWvAhBzgFhhIgmrwM
-LJUmq5rnJQZj20xPcuULZuvwz6RS6A9DfA1Ax3V6UX4tKz7IoBo=
-=DkvM
+iQIzBAEBCgAdFiEE13lBh4wyIYgS7Mi49NsMPdTvDEIFAmnJCmUACgkQ9NsMPdTv
+DEKZEA//f5tG2yDsshTRnBD39hG5PG5eJzKZLBi+ax3gsVSgOkNMcdXpOS0nhEOV
+xDjxg2ixGzFfEwE9c14cDkxoe0Zj98f2As0U+lqmsxDOmElWmRVSApePYSpp0ODh
+HZnnbtcbISXMPCn6WeMZ6ZT7mjSlMTILQqUHq+mJnAJUmH2qu7JgyVJOqpjHC+US
+Sh69eXideCL/exWVRttUQnsqbxKXbtuxRBncqhrAtLrs1As1KxpbLSO0Q18a5PVP
+SLc7eDTSXxVKe3o/vsUtgQtcG/rdHg40UzfrTT/pmdK+bumOUNDFLI3+zkSyOFgP
+rzoMIrlowCMlGOzbYghOpDaius2UNeX9bd3fT8xodtGhIXGeyvBfbJC7FhYChe/R
+zOwNN5uCtl+Ajh71KbQPgErzv96TLholesTFG4R8P9CNyK5zWbAv7HvuUVFOTDYv
+1kJvFbSeb4xikA4rb0nAOY8KGW74Y87B5a0hGWy/A8+BMVQec2RVWqpM3VVl4Jv0
+S9BnspVBogCs/X276/WJlk5mK56nUfSBeHDm37DGQ2pLsccyXTmYzg6v+8bBsxIm
+2EXyT2tBxWMm6pEU2UXCcHr7wHyxD9qFyRwKELUud7GS4fHY/o830wGVNyIAev2U
+YXNgTuBGB2iPzpLgdpRcvK6R2u8wdjzWgmdgp/U+yk/rITcbM/M=
+=iGad
 -----END PGP SIGNATURE-----
