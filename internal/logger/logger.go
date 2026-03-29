@@ -1,4 +1,4 @@
-// Package logger provides a structured, levelled logger for Onyx.
+// Package logger provides a structured, leveled logger for Onyx.
 // It wraps slog so all packages share one consistent format without
 // introducing an external logging dependency.
 package logger

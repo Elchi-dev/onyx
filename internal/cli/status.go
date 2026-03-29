@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -16,8 +17,14 @@ func newStatusCommand() *cobra.Command {
 		Use:   "status",
 		Short: "Check whether Onyx is running",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client := &http.Client{Timeout: 3 * time.Second}
-			resp, err := client.Get(dashURL + "/api/stats")
+			ctx, cancel := context.WithTimeout(cmd.Context(), 3*time.Second)
+			defer cancel()
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, dashURL+"/api/stats", nil)
+			if err != nil {
+				return err
+			}
+			client := &http.Client{}
+			resp, err := client.Do(req)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "✗ Onyx is not reachable at %s\n", dashURL)
 				return err

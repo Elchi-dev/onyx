@@ -48,7 +48,7 @@ func New(cfg *config.Config, log *slog.Logger, version string) (*App, error) {
 	router := proxy.New(log, nil)
 
 	// Dashboard gets the router so it can add/remove routes live from the UI.
-	dash := dashboard.New(log, db, router)
+	dash := dashboard.New(log, db)
 	dash.SetVersion(version)
 
 	// Now wire the event handler: proxy events -> dashboard broadcast.

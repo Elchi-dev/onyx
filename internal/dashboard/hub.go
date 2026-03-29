@@ -28,7 +28,7 @@ type wsClient struct {
 	send chan []byte
 }
 
-// NewHub creates an initialised Hub.
+// NewHub creates an initialized Hub.
 func NewHub(log *slog.Logger) *Hub {
 	return &Hub{
 		clients: make(map[*wsClient]struct{}),
@@ -48,12 +48,12 @@ func (h *Hub) Register(conn *websocket.Conn) {
 	c.readPump(h) // blocks
 }
 
-// Broadcast serialises event to JSON and sends it to all connected clients.
+// Broadcast serializes event to JSON and sends it to all connected clients.
 // Slow clients are dropped rather than blocking the broadcaster.
 func (h *Hub) Broadcast(event Event) {
 	data, err := json.Marshal(event)
 	if err != nil {
-		h.log.Error("marshalling broadcast event", "error", err)
+		h.log.Error("marshaling broadcast event", "error", err)
 		return
 	}
 	h.mu.RLock()
@@ -75,7 +75,7 @@ func (h *Hub) remove(c *wsClient) {
 	h.log.Info("dashboard client disconnected")
 }
 
-func (c *wsClient) writePump(h *Hub) {
+func (c *wsClient) writePump(_ *Hub) {
 	defer c.conn.Close()
 	for msg := range c.send {
 		if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {

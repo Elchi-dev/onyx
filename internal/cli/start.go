@@ -65,7 +65,7 @@ func runStart(configPath string, dev bool, version string) error {
 // (which would cause double-logging and unnecessary DB connections).
 func needsSetup(configPath string) bool {
 	if configPath != "" {
-		// User provided a path explicitly -- honour it, don't run setup.
+		// User provided a path explicitly -- honor it, don't run setup.
 		return false
 	}
 	candidates := []string{"onyx.toml", "/etc/onyx/onyx.toml"}

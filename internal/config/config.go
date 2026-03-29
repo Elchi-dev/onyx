@@ -83,7 +83,7 @@ func Load(path string) (*Config, error) {
 	return cfg, nil
 }
 
-// Write serialises cfg to TOML and writes it to path, creating directories as needed.
+// Write serializes cfg to TOML and writes it to path, creating directories as needed.
 func (c *Config) Write(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("creating config dir: %w", err)

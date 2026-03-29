@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -45,7 +46,7 @@ verified, then moved into place. The old binary is never removed until
 the new one is confirmed.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			currentVersion, _ := cmd.Root().Version, ""
-			return runUpdate(currentVersion, checkOnly, force)
+			return runUpdate(cmd.Context(), currentVersion, checkOnly, force)
 		},
 	}
 
@@ -54,10 +55,10 @@ the new one is confirmed.`,
 	return cmd
 }
 
-func runUpdate(currentVersion string, checkOnly, force bool) error {
+func runUpdate(ctx context.Context, currentVersion string, checkOnly, force bool) error {
 	fmt.Println("Checking for updates...")
 
-	release, err := fetchLatestRelease()
+	release, err := fetchLatestRelease(ctx)
 	if err != nil {
 		return fmt.Errorf("fetching latest release: %w", err)
 	}
@@ -66,7 +67,6 @@ func runUpdate(currentVersion string, checkOnly, force bool) error {
 	fmt.Printf("  Current version: %s\n", currentVersion)
 	fmt.Printf("  Latest version:  %s\n", latestVersion)
 
-	// Compare: skip if already up to date (unless --force)
 	if !force && latestVersion == currentVersion {
 		fmt.Println("\n  Already up to date!")
 		return nil
@@ -84,7 +84,6 @@ func runUpdate(currentVersion string, checkOnly, force bool) error {
 		return nil
 	}
 
-	// Find the right asset for the current platform
 	assetName := assetNameForPlatform()
 	downloadURL := ""
 	var downloadSize int64
@@ -106,7 +105,6 @@ func runUpdate(currentVersion string, checkOnly, force bool) error {
 
 	fmt.Printf("\n  Downloading %s (%.1f MB)...\n", assetName, float64(downloadSize)/(1024*1024))
 
-	// Get the path of the current binary
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("finding current executable: %w", err)
@@ -116,27 +114,23 @@ func runUpdate(currentVersion string, checkOnly, force bool) error {
 		return fmt.Errorf("resolving symlinks: %w", err)
 	}
 
-	// Download to a temp file in the same directory as the binary
 	tmpFile, err := os.CreateTemp(filepath.Dir(exePath), ".onyx-update-*")
 	if err != nil {
 		return fmt.Errorf("creating temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath) // clean up on any error
+	defer os.Remove(tmpPath)
 
-	if err := downloadFile(tmpFile, downloadURL); err != nil {
+	if err := downloadFile(ctx, tmpFile, downloadURL); err != nil {
 		tmpFile.Close()
 		return fmt.Errorf("downloading update: %w", err)
 	}
 	tmpFile.Close()
 
-	// Make the downloaded binary executable
 	if err := os.Chmod(tmpPath, 0o755); err != nil {
 		return fmt.Errorf("setting permissions: %w", err)
 	}
 
-	// Atomic replace: rename temp file over the current binary
-	// os.Rename is atomic on Unix (same filesystem required, hence same dir)
 	if err := os.Rename(tmpPath, exePath); err != nil {
 		return fmt.Errorf(
 			"replacing binary at %s: %w\n"+
@@ -152,15 +146,15 @@ func runUpdate(currentVersion string, checkOnly, force bool) error {
 }
 
 // fetchLatestRelease queries the GitHub releases API.
-func fetchLatestRelease() (*githubRelease, error) {
-	client := &http.Client{Timeout: 15 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, githubReleasesAPI, nil)
+func fetchLatestRelease(ctx context.Context) (*githubRelease, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, githubReleasesAPI, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "onyx-updater")
 
+	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
@@ -178,10 +172,14 @@ func fetchLatestRelease() (*githubRelease, error) {
 	return &release, nil
 }
 
-// downloadFile downloads a URL into w, showing a simple progress indicator.
-func downloadFile(w io.Writer, url string) error {
+// downloadFile downloads a URL into w using the provided context.
+func downloadFile(ctx context.Context, w io.Writer, url string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
 	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -206,8 +204,7 @@ func assetNameForPlatform() string {
 	return fmt.Sprintf("onyx-%s-%s", goos, goarch)
 }
 
-// isDevBuild reports whether the version string looks like a dev build
-// (git hash, "dev", or contains "dirty").
+// isDevBuild reports whether the version string looks like a dev build.
 func isDevBuild(version string) bool {
 	if version == "" || version == "dev" {
 		return true
@@ -215,7 +212,6 @@ func isDevBuild(version string) bool {
 	if strings.Contains(version, "dirty") {
 		return true
 	}
-	// Git hashes are typically 7–40 hex chars, not starting with "v"
 	if !strings.HasPrefix(version, "v") && len(version) <= 40 {
 		return true
 	}

@@ -9,7 +9,7 @@ import (
 )
 
 // StartServer starts an HTTP server on addr with graceful shutdown support.
-// It blocks until ctx is cancelled, then gives in-flight requests 10 seconds
+// It blocks until ctx is canceled, then gives in-flight requests 10 seconds
 // to complete before forcing a shutdown.
 func StartServer(ctx context.Context, addr string, handler http.Handler, log *slog.Logger) error {
 	srv := &http.Server{

@@ -80,7 +80,6 @@ type Dashboard struct {
 	log        *slog.Logger
 	hub        *Hub
 	db         *database.DB
-	router     RouteManager
 	mux        *http.ServeMux
 	loginLimit *loginLimiter
 	stats      *serverStats
@@ -88,21 +87,13 @@ type Dashboard struct {
 	startTime  time.Time
 }
 
-// RouteManager is the interface the dashboard uses to add/remove proxy routes
-// without importing the proxy package directly.
-type RouteManager interface {
-	AddRoute(host, target string) error
-	RemoveRoute(host string)
-}
-
 // New creates a Dashboard, wires all routes, and starts background cleanup.
-func New(log *slog.Logger, db *database.DB, router RouteManager) *Dashboard {
+func New(log *slog.Logger, db *database.DB) *Dashboard {
 	d := &Dashboard{
-		log:    log,
-		hub:    NewHub(log),
-		db:     db,
-		router: router,
-		mux:    http.NewServeMux(),
+		log: log,
+		hub: NewHub(log),
+		db:  db,
+		mux: http.NewServeMux(),
 		// Max 5 login attempts per minute per IP.
 		loginLimit: newLoginLimiter(5, time.Minute),
 		stats:      newServerStats(),
@@ -261,10 +252,7 @@ func (d *Dashboard) handleRoutesAPI(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "database error", http.StatusInternalServerError)
 			return
 		}
-		// Wire the route into the live proxy router immediately — no restart needed.
-		if err := d.router.AddRoute(body.Host, body.Target); err != nil {
-			d.log.Warn("adding route to proxy router", "host", body.Host, "error", err)
-		}
+		// Broadcast a routes-changed event so connected clients refresh their list.
 		d.hub.Broadcast(Event{Type: "routes_changed", Payload: nil})
 		jsonOK(w, map[string]string{"status": "created", "host": body.Host})
 
@@ -287,8 +275,6 @@ func (d *Dashboard) handleRouteByHost(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "database error", http.StatusInternalServerError)
 			return
 		}
-		// Remove from the live proxy router immediately.
-		d.router.RemoveRoute(host)
 		d.hub.Broadcast(Event{Type: "routes_changed", Payload: nil})
 		jsonOK(w, map[string]string{"status": "deleted", "host": host})
 
@@ -307,19 +293,6 @@ func (d *Dashboard) handleRouteByHost(w http.ResponseWriter, r *http.Request) {
 		if err := d.db.SetRouteEnabled(host, *body.Enabled); err != nil {
 			jsonError(w, "database error", http.StatusInternalServerError)
 			return
-		}
-		// Sync enable/disable with the live proxy router.
-		if *body.Enabled {
-			// Re-add to router — need the target from DB.
-			routes, _ := d.db.ListRoutes()
-			for _, r := range routes {
-				if r.Host == host {
-					_ = d.router.AddRoute(r.Host, r.Target)
-					break
-				}
-			}
-		} else {
-			d.router.RemoveRoute(host)
 		}
 		d.hub.Broadcast(Event{Type: "routes_changed", Payload: nil})
 		jsonOK(w, map[string]any{"status": "updated", "host": host, "enabled": *body.Enabled})
@@ -416,7 +389,7 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
-// StartServer starts the dashboard HTTP server. Blocks until ctx is cancelled.
+// StartServer starts the dashboard HTTP server. Blocks until ctx is canceled.
 func StartServer(ctx context.Context, addr string, handler http.Handler, log *slog.Logger) error {
 	srv := &http.Server{
 		Addr:         addr,
