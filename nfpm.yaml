@@ -15,7 +15,7 @@ homepage: https://github.com/Elchi-dev/onyx
 license: MIT
 
 contents:
-  - src: ./build/onyx-linux-amd64
+  - src: ./dist/onyx-linux-amd64
     dst: /usr/local/bin/onyx
     file_info:
       mode: 0755
