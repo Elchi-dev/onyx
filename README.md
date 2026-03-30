@@ -195,24 +195,37 @@ open http://localhost:8080
 | 📱 Responsive mobile layout | ✅ v0.1.1 |
 | 🔄 Live route updates (no restart needed) | ✅ v0.1.2 |
 | ⬆️ Self-update via `onyx update` | ✅ v0.1.2 |
-| 🔒 Automatic HTTPS (Let's Encrypt) | 📅 v0.2.0 |
-| ♻️ Config hot-reload | 📅 v0.3.0 |
-| 📦 Homebrew tap | 📅 v0.3.0 |
-| 🐳 Docker image | 📅 v0.3.0 |
+| 🔒 Automatic HTTPS (Let's Encrypt) | ✅ v0.2.0 |
+| 🔒 Self-signed certs for local domains | ✅ v0.2.0 |
+| 🛣️ Path-based routing | ✅ v0.3.0 |
+| 📁 Static file serving + SPA mode | ✅ v0.3.0 |
+| 🔌 Explicit WebSocket proxying | ✅ v0.3.0 |
+| 🗜️ Gzip compression per route | ✅ v0.3.0 |
+| 📋 Custom response headers per route | ✅ v0.3.0 |
+| 🔁 www redirect (strip/add) | ✅ v0.3.0 |
+| 📥 nginx config importer (CLI + dashboard) | ✅ v0.3.0 |
+| ✏️ Route edit modal in dashboard | ✅ v0.3.0 |
+| 🐳 Docker support | ✅ v0.3.0 |
+| 🏥 Health checks + auto-failover | 📅 v0.3.2 |
+| 🔐 Basic auth per route | 📅 v0.3.3 |
+| 📊 Prometheus metrics | 📅 v0.4.0 |
+| ♻️ Config hot-reload | 📅 v0.4.0 |
+| 📦 Homebrew tap | 📅 v0.4.0 |
 
 ---
 
 ## CLI reference
 
 ```
-onyx start [--config PATH] [--dev]    Start proxy + dashboard
-onyx setup                            Interactive first-time setup
-onyx validate [--config PATH]         Check config without starting
-onyx status [--url URL]               Check if Onyx is running
-onyx update [--check] [--force]       Update Onyx to the latest release
-onyx route add --host H --target T    Add a proxy route
-onyx route list                       List all routes
-onyx route remove <host>              Remove a route
+onyx start [--config PATH] [--dev]       Start proxy + dashboard
+onyx setup                               Interactive first-time setup
+onyx validate [--config PATH]            Check config without starting
+onyx status [--url URL]                  Check if Onyx is running
+onyx update [--check] [--force]          Update Onyx to the latest release
+onyx route add --host H --target T       Add a proxy route
+onyx route list                          List all routes
+onyx route remove <host>                 Remove a route
+onyx import nginx <file|dir>             Import routes from nginx config
 ```
 
 ---

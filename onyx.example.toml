@@ -1,32 +1,68 @@
 # ============================================================
-#  onyx.example.toml — Reference configuration
+#  onyx.example.toml — Full reference configuration
 #  Run `onyx setup` to generate onyx.toml automatically.
+#  All fields shown here with their defaults.
 # ============================================================
 
 [server]
 http_port  = 80
-https_port = 443          # HTTPS coming in v0.2.0
+https_port = 443
 data_dir   = "~/.config/onyx"
 
 [dashboard]
 enabled = true
 port    = 8080
-# Password is set via `onyx setup` and stored as a bcrypt hash in onyx.db.
-# It is never stored in this file.
+# Password is set via `onyx setup` — stored as bcrypt hash in onyx.db.
 
-# ── Routes ───────────────────────────────────────────────────
-# Each [[routes]] block proxies one hostname → one backend.
-
+# ── Basic route ──────────────────────────────────────────────
 [[routes]]
 host    = "api.example.com"
 target  = "http://localhost:3000"
 enabled = true
+https   = false          # true = automatic HTTPS via Let's Encrypt
 
   [routes.rate_limit]
   requests_per_second = 100.0
   burst               = 50
 
+# ── Route with all options ────────────────────────────────────
 [[routes]]
-host    = "app.example.com"
-target  = "http://localhost:5173"
-enabled = true
+host         = "app.example.com"
+target       = "http://localhost:5173"
+enabled      = true
+https        = true          # Let's Encrypt for public domains,
+                             # self-signed for .local / .test / localhost
+gzip         = true          # compress responses
+www_redirect = "strip"       # "strip" = www.app.example.com → app.example.com
+                             # "add"   = app.example.com → www.app.example.com
+max_body_size = 26214400     # 25 MB in bytes (0 = global default of 10 MB)
+timeout       = 60           # backend response timeout in seconds
+
+  # Custom response headers injected into every response.
+  [routes.headers]
+  "Access-Control-Allow-Origin" = "https://app.example.com"
+  "X-Custom-Header"             = "onyx"
+
+  # Path-based routing — longest prefix wins.
+  # target is optional: leave empty to use the route's main target.
+  [[routes.paths]]
+  path   = "/api/"
+  target = "http://localhost:8000"   # FastAPI backend
+
+  [[routes.paths]]
+  path   = "/ws"
+  target = "http://localhost:8000"   # WebSocket endpoint
+
+  [routes.rate_limit]
+  requests_per_second = 50.0
+  burst               = 25
+
+# ── Static file serving ───────────────────────────────────────
+[[routes]]
+host        = "static.example.com"
+target      = ""                       # no proxy target needed
+static_root = "/var/www/myapp/dist"    # serve files from this directory
+static_spa  = true                     # fallback to index.html for SPA routing
+enabled     = true
+https       = true
+gzip        = true

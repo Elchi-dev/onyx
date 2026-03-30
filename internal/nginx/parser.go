@@ -103,17 +103,16 @@ func tokenize(input string) []token {
 			i++
 			continue
 		}
-		if c == '{' {
-			tokens = append(tokens, token{"{"," {"})
+		switch c {
+		case '{':
+			tokens = append(tokens, token{"{", "{"})
 			i++
 			continue
-		}
-		if c == '}' {
+		case '}':
 			tokens = append(tokens, token{"}", "}"})
 			i++
 			continue
-		}
-		if c == ';' {
+		case ';':
 			tokens = append(tokens, token{";", ";"})
 			i++
 			continue
@@ -178,12 +177,11 @@ func parseBlockList(tokens []token, start int) ([]block, int, error) {
 		if i >= len(tokens) {
 			break
 		}
-		if tokens[i].kind == ";" {
-			// Directive.
+		switch tokens[i].kind {
+		case ";":
 			blocks = append(blocks, block{name: name, args: args})
 			i++
-		} else if tokens[i].kind == "{" {
-			// Block.
+		case "{":
 			i++
 			children, next, err := parseBlockList(tokens, i)
 			if err != nil {
@@ -202,7 +200,7 @@ func parseBlockList(tokens []token, start int) ([]block, int, error) {
 				}
 			}
 			blocks = append(blocks, b)
-		} else {
+		default:
 			i++
 		}
 	}
@@ -220,7 +218,6 @@ func blockToRoute(b block) (database.Route, bool) {
 		switch d.name {
 		case "server_name":
 			if len(d.args) > 0 {
-				// Use the first non-wildcard name.
 				for _, name := range d.args {
 					if name != "_" && !strings.HasPrefix(name, "~") {
 						r.Host = name
@@ -230,34 +227,26 @@ func blockToRoute(b block) (database.Route, bool) {
 			}
 		case "listen":
 			for _, arg := range d.args {
-				if arg == "443" || strings.Contains(arg, "443") {
-					r.HTTPS = true
-				}
-				if arg == "ssl" {
+				if arg == "443" || strings.Contains(arg, "443") || arg == "ssl" {
 					r.HTTPS = true
 				}
 			}
 		case "add_header":
 			if len(d.args) >= 2 {
-				// Skip "always" modifier.
+				headerName := d.args[0]
 				val := d.args[1]
-				if len(d.args) > 2 && d.args[2] != "always" {
+				if len(d.args) > 2 && d.args[len(d.args)-1] == "always" {
 					val = strings.Join(d.args[1:len(d.args)-1], " ")
 				}
-				// Don't import SSL/security headers — Onyx handles those.
-				name := d.args[0]
-				skip := []string{"Strict-Transport-Security", "X-Frame-Options",
-					"X-Content-Type-Options", "X-XSS-Protection",
-					"ssl_certificate", "ssl_dhparam"}
-				skipIt := false
-				for _, s := range skip {
-					if strings.EqualFold(name, s) {
-						skipIt = true
-						break
-					}
+				// Skip security headers Onyx manages itself.
+				skip := map[string]bool{
+					"strict-transport-security": true,
+					"x-frame-options":           true,
+					"x-content-type-options":    true,
+					"x-xss-protection":          true,
 				}
-				if !skipIt {
-					r.RespHeaders[name] = val
+				if !skip[strings.ToLower(headerName)] {
+					r.RespHeaders[headerName] = val
 				}
 			}
 		case "client_max_body_size":
@@ -271,7 +260,7 @@ func blockToRoute(b block) (database.Route, bool) {
 		}
 	}
 
-	// Parse location blocks for path rules and default proxy.
+	// Parse location blocks.
 	for _, child := range b.children {
 		if child.name != "location" {
 			continue
@@ -280,18 +269,16 @@ func blockToRoute(b block) (database.Route, bool) {
 		if len(child.args) > 0 {
 			locPath = child.args[len(child.args)-1]
 		}
-
 		for _, d := range child.directives {
 			switch d.name {
 			case "proxy_pass":
 				if len(d.args) > 0 {
-					target := d.args[0]
 					if locPath == "/" || locPath == "" {
-						r.Target = target
+						r.Target = d.args[0]
 					} else {
 						r.Paths = append(r.Paths, database.PathEntry{
 							Path:   locPath,
-							Target: target,
+							Target: d.args[0],
 						})
 					}
 				}
@@ -307,46 +294,39 @@ func blockToRoute(b block) (database.Route, bool) {
 				}
 			case "return":
 				if len(d.args) >= 2 && (d.args[0] == "301" || d.args[0] == "302") {
-					// Detect www → non-www pattern.
 					dest := d.args[1]
-					if strings.Contains(dest, "$host") || strings.Contains(dest, "www.") {
-						// Simple heuristic.
-						if strings.Contains(dest, "//www.") {
-							r.WWWRedirect = "add"
-						}
+					if strings.Contains(dest, "//www.") {
+						r.WWWRedirect = "add"
 					}
 				}
 			}
 		}
 	}
 
-	// Need at least a host and some target.
-	if r.Host == "" {
+	if r.Host == "" || (r.Target == "" && r.StaticRoot == "") {
 		return r, false
 	}
-	if r.Target == "" && r.StaticRoot == "" {
-		return r, false
-	}
-	// Skip pure redirect-only server blocks (certbot temp blocks, etc.)
-	if r.Target == "" && r.StaticRoot == "" {
-		return r, false
-	}
-
 	return r, true
 }
 
 func parseSize(s string) int64 {
 	s = strings.ToLower(strings.TrimSpace(s))
-	multipliers := map[string]int64{
-		"k": 1024, "kb": 1024,
-		"m": 1024 * 1024, "mb": 1024 * 1024,
-		"g": 1024 * 1024 * 1024, "gb": 1024 * 1024 * 1024,
+	suffixes := []struct {
+		suffix string
+		mult   int64
+	}{
+		{"gb", 1024 * 1024 * 1024},
+		{"mb", 1024 * 1024},
+		{"kb", 1024},
+		{"g", 1024 * 1024 * 1024},
+		{"m", 1024 * 1024},
+		{"k", 1024},
 	}
-	for suffix, mult := range multipliers {
-		if strings.HasSuffix(s, suffix) {
-			num, err := strconv.ParseFloat(strings.TrimSuffix(s, suffix), 64)
+	for _, entry := range suffixes {
+		if strings.HasSuffix(s, entry.suffix) {
+			num, err := strconv.ParseFloat(strings.TrimSuffix(s, entry.suffix), 64)
 			if err == nil {
-				return int64(num * float64(mult))
+				return int64(num * float64(entry.mult))
 			}
 		}
 	}
