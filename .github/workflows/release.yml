@@ -48,10 +48,10 @@ jobs:
         run: |
           go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
           VERSION="${{ steps.version.outputs.VERSION }}"
-          # Strip leading 'v' for deb version
           DEB_VERSION="${VERSION#v}"
           sed "s/^version:.*/version: \"${DEB_VERSION}\"/" nfpm.yaml > nfpm-release.yaml
-          nfpm package --config nfpm-release.yaml --packager deb --target dist/
+          ARCH=amd64 nfpm package --config nfpm-release.yaml --packager deb --target dist/
+          ARCH=arm64 nfpm package --config nfpm-release.yaml --packager rpm --target dist/
           rm nfpm-release.yaml
 
       - name: Build .rpm package
@@ -59,7 +59,7 @@ jobs:
           VERSION="${{ steps.version.outputs.VERSION }}"
           DEB_VERSION="${VERSION#v}"
           sed "s/^version:.*/version: \"${DEB_VERSION}\"/" nfpm.yaml > nfpm-release.yaml
-          nfpm package --config nfpm-release.yaml --packager rpm --target dist/
+          ARCH=amd64 nfpm package --config nfpm-release.yaml --packager rpm --target dist/
           rm nfpm-release.yaml
 
       - name: Generate checksums
