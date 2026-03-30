@@ -4,10 +4,10 @@ Architecture: arm64
 Maintainer: Elchi-dev <elchi@example.com>
 Installed-Size: 13123
 Filename: pool/main/o/onyx/arm64/onyx_0.3.1_arm64.deb
-Size: 5461512
-MD5sum: b7a07df9192907f78749ede5aefacc45
-SHA1: 56c2d61e155e9d9d9d9cd92bd5fbc188bf0f3df8
-SHA256: 9f4bd3ffe5bf26edb42493d4264a285717bb5e683f7a46f3f06ac0cbf46e5c8e
+Size: 5461510
+MD5sum: 328a24577151d73570cf04ab243bd45c
+SHA1: 070321c4ae1879fc509b16c75221d1efbbd7e44f
+SHA256: 36b362cf7640d4d2e7ddee51764f5d199bacde323894c66ba6d9e4d20bbf3280
 Section: net
 Priority: optional
 Homepage: https://github.com/Elchi-dev/onyx

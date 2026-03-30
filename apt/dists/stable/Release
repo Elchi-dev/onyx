@@ -5,9 +5,9 @@ Codename: stable
 Architectures: amd64 arm64
 Components: main
 Description: Modular reverse proxy with a live dashboard
-Date: Mon, 30 Mar 2026 10:06:19 +0000
+Date: Mon, 30 Mar 2026 11:20:58 +0000
 SHA256:
- 275306f6452a69a2e481080d6770874c784e92798be4cbbce3ff6e77954d7c36 596 main/binary-amd64/Packages
- 3949253588f8677ebd6441bc42f33953c70cbca29f0cf2816de1c6592fd1b7a4 451 main/binary-amd64/Packages.gz
- 32facc0f897c856be6561f3ba8aa026899e629ec15f86c935f982ac24280c84b 596 main/binary-arm64/Packages
- 4b09ecf39dd8c61e0f366b6eacb0e16bed39c630597144f6a1e3ede6299fe13c 448 main/binary-arm64/Packages.gz
+ b4418fb3bc5d42643fc5c1bac75962771d4630007d40cdc207c6db43d506ba09 596 main/binary-amd64/Packages
+ 8e5a90116c2257cd9c17d383ca014d4c1e08faf4e736351db97a4e25f7bbd865 451 main/binary-amd64/Packages.gz
+ 77062edfbe9edc804eff49f61d81d84dbd7cfbdc95886d758089656cda2aab1b 596 main/binary-arm64/Packages
+ 5a3e637e8a2ef65f36710a9bdd992433c9cac2a5943c1d1828418ae9d2f54bae 449 main/binary-arm64/Packages.gz
