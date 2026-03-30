@@ -9,6 +9,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/) · Versioning: [SemVer](
 
 ---
 
+## [v0.3.1] — 2026-03-30
+
+### Fixed
+
+- **`swap.sh` dirname bug** — the script now correctly finds the project root
+  inside any zip regardless of how it is invoked. `bash scripts/dev/swap.sh`
+  works reliably from any working directory.
+- **nginx parser gofmt** — `internal/nginx/parser.go` was not properly
+  formatted; all token-type checks are now expressed as `switch` statements
+  as required by `gofmt` and `gocritic`.
+- **nginx parser gocritic** — replaced if-else chains with `switch` statements
+  in the tokenizer and block parser. The `parseSize` suffix lookup now uses an
+  ordered slice instead of a map to avoid ambiguous suffix matching (e.g. `m`
+  vs `mb`).
+
+### Improved
+
+- **`onyx validate`** — output now shows HTTPS status, gzip flag, static root,
+  and path rules per route instead of just host and target.
+- **`onyx.example.toml`** — fully updated to document all v0.3.0 fields:
+  `https`, `gzip`, `www_redirect`, `max_body_size`, `timeout`, `static_root`,
+  `static_spa`, `[routes.headers]`, and `[[routes.paths]]` with inline
+  comments explaining each option.
+- **README** — features table updated to reflect v0.2.0 and v0.3.0 releases;
+  CLI reference updated to include `onyx import nginx`; roadmap updated with
+  v0.3.2–v0.4.0 milestones.
+
+---
+
 ## [v0.3.0] — 2026-03-30
 
 ### Added

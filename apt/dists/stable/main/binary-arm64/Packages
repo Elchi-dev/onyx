@@ -1,13 +1,13 @@
 Package: onyx
-Version: 0.3.0
+Version: 0.3.1
 Architecture: arm64
 Maintainer: Elchi-dev <elchi@example.com>
-Installed-Size: 13121
-Filename: pool/main/o/onyx/arm64/onyx_0.3.0_arm64.deb
-Size: 5460270
-MD5sum: 33d325f836baa98110e1147354548c6f
-SHA1: fbc9e2a6e22ac8d786ae9d1ed78a57d3bed8b52c
-SHA256: fc66a7ff79a4a4737bacd1036cfd8c17ec82891004d906e8de59becfd918bd3c
+Installed-Size: 13123
+Filename: pool/main/o/onyx/arm64/onyx_0.3.1_arm64.deb
+Size: 5461512
+MD5sum: b7a07df9192907f78749ede5aefacc45
+SHA1: 56c2d61e155e9d9d9d9cd92bd5fbc188bf0f3df8
+SHA256: 9f4bd3ffe5bf26edb42493d4264a285717bb5e683f7a46f3f06ac0cbf46e5c8e
 Section: net
 Priority: optional
 Homepage: https://github.com/Elchi-dev/onyx
