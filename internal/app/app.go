@@ -1,6 +1,4 @@
 // Package app is the dependency wiring layer for Onyx.
-// It owns the lifecycle of all major components and connects them together.
-// CLI commands only need to know about app.App — not individual internals.
 package app
 
 import (
@@ -28,7 +26,7 @@ import (
 
 const defaultBodyLimit = 10 << 20
 
-// App holds all wired components and orchestrates startup and shutdown.
+// App holds all wired components.
 type App struct {
 	cfg     *config.Config
 	log     *slog.Logger
@@ -39,7 +37,7 @@ type App struct {
 	version string
 }
 
-// New wires all components from the given config and logger.
+// New wires all components.
 func New(cfg *config.Config, log *slog.Logger, version string) (*App, error) {
 	db, err := database.Open(cfg.DBPath())
 	if err != nil {
@@ -49,26 +47,32 @@ func New(cfg *config.Config, log *slog.Logger, version string) (*App, error) {
 	var httpsHosts []string
 	router := proxy.New(log, nil)
 
+	// Load routes from TOML config.
 	for _, r := range cfg.Routes {
-		if r.Enabled {
-			if err := router.AddRoute(r.Host, r.Target); err != nil {
-				log.Warn("skipping invalid config route", "host", r.Host, "error", err)
-				continue
-			}
-			if r.HTTPS {
-				httpsHosts = append(httpsHosts, r.Host)
-			}
+		if !r.Enabled {
+			continue
+		}
+		rd := configToRouteData(r)
+		if err := router.AddRoute(rd); err != nil {
+			log.Warn("skipping invalid config route", "host", r.Host, "error", err)
+			continue
+		}
+		if r.HTTPS {
+			httpsHosts = append(httpsHosts, r.Host)
 		}
 	}
 
+	// Load routes from database.
 	dbRoutes, err := db.ListRoutes()
 	if err != nil {
 		return nil, fmt.Errorf("loading db routes: %w", err)
 	}
 	for _, r := range dbRoutes {
-		if r.Enabled {
-			_ = router.AddRoute(r.Host, r.Target)
+		if !r.Enabled {
+			continue
 		}
+		rd := dbToRouteData(r)
+		_ = router.AddRoute(rd)
 		if r.HTTPS {
 			httpsHosts = append(httpsHosts, r.Host)
 		}
@@ -216,6 +220,50 @@ func (a *App) proxyHandler() http.Handler {
 	)
 }
 
+// ── Conversion helpers ────────────────────────────────────────────────────────
+
+func configToRouteData(r config.RouteConfig) proxy.RouteData {
+	rd := proxy.RouteData{
+		Host:        r.Host,
+		Target:      r.Target,
+		HTTPS:       r.HTTPS,
+		WWWRedirect: r.WWWRedirect,
+		Gzip:        r.Gzip,
+		MaxBodySize: r.MaxBodySize,
+		TimeoutSecs: r.TimeoutSecs,
+		StaticRoot:  r.StaticRoot,
+		StaticSPA:   r.StaticSPA,
+		RespHeaders: r.RespHeaders,
+		RateLimit: proxy.RateLimitData{
+			RequestsPerSecond: r.RateLimit.RequestsPerSecond,
+			Burst:             r.RateLimit.Burst,
+		},
+	}
+	for _, p := range r.Paths {
+		rd.Paths = append(rd.Paths, proxy.PathRule{Path: p.Path, Target: p.Target})
+	}
+	return rd
+}
+
+func dbToRouteData(r database.Route) proxy.RouteData {
+	rd := proxy.RouteData{
+		Host:        r.Host,
+		Target:      r.Target,
+		HTTPS:       r.HTTPS,
+		WWWRedirect: r.WWWRedirect,
+		Gzip:        r.Gzip,
+		MaxBodySize: r.MaxBodySize,
+		TimeoutSecs: r.TimeoutSecs,
+		StaticRoot:  r.StaticRoot,
+		StaticSPA:   r.StaticSPA,
+		RespHeaders: r.RespHeaders,
+	}
+	for _, p := range r.Paths {
+		rd.Paths = append(rd.Paths, proxy.PathRule{Path: p.Path, Target: p.Target})
+	}
+	return rd
+}
+
 func NewFromConfigPath(configPath string, development bool, version string) (*App, error) {
 	log := logger.New(logLevel(development), development)
 	if configPath == "" {
@@ -249,5 +297,5 @@ func findConfig() (string, error) {
 			return p, nil
 		}
 	}
-	return "", fmt.Errorf("no onyx.toml found — run 'onyx setup' first")
+	return "", fmt.Errorf("no onyx.toml found - run 'onyx setup' first")
 }

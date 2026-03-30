@@ -36,11 +36,16 @@ func newRouteAddCommand() *cobra.Command {
 				return err
 			}
 			defer db.Close()
-			if err := db.UpsertRoute(host, target, true, false); err != nil {
+			if err := db.UpsertRoute(database.Route{
+				Host:        host,
+				Target:      target,
+				Enabled:     true,
+				RespHeaders: map[string]string{},
+				Paths:       []database.PathEntry{},
+			}); err != nil {
 				return err
 			}
-			fmt.Printf("✓ Route added: %s → %s\n", host, target)
-			fmt.Println("  Restart Onyx (or hot-reload in v0.3.0) to apply.")
+			fmt.Printf("Route added: %s -> %s\n", host, target)
 			return nil
 		},
 	}
@@ -68,12 +73,12 @@ func newRouteListCommand() *cobra.Command {
 			}
 			if len(routes) == 0 {
 				fmt.Println("No routes registered.")
-				fmt.Println("Add one: onyx route add --host example.com --target http://localhost:3000")
 				return nil
 			}
 			fmt.Printf("\n  %-40s %-40s %s\n", "HOST", "TARGET", "ENABLED")
-			fmt.Printf("  %-40s %-40s %s\n", "────────────────────────────────────────",
-				"────────────────────────────────────────", "───────")
+			fmt.Printf("  %-40s %-40s %s\n",
+				"----------------------------------------",
+				"----------------------------------------", "-------")
 			for _, r := range routes {
 				enabled := "yes"
 				if !r.Enabled {
@@ -102,13 +107,12 @@ func newRouteRemoveCommand() *cobra.Command {
 			if err := db.DeleteRoute(args[0]); err != nil {
 				return err
 			}
-			fmt.Printf("✓ Route removed: %s\n", args[0])
+			fmt.Printf("Route removed: %s\n", args[0])
 			return nil
 		},
 	}
 }
 
-// openDB locates and opens the Onyx database from the default data directory.
 func openDB() (*database.DB, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
