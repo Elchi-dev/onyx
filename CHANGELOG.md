@@ -9,6 +9,65 @@ Format: [Keep a Changelog](https://keepachangelog.com/) · Versioning: [SemVer](
 
 ---
 
+## [v0.3.0] — 2026-03-30
+
+### Added
+
+- **Path-based routing** — define `[[routes.paths]]` blocks to route URL prefixes
+  to different backends. `/api/` can go to one service, `/ws` to another, all
+  under the same hostname. Longest-prefix match, consistent with nginx behavior.
+- **Static file serving** — set `static_root` on any route to serve files
+  directly from a directory. No separate file server needed.
+- **SPA mode** — set `static_spa = true` to fall back to `index.html` for any
+  missing path, enabling client-side routing (React, Vue, Svelte, etc.).
+- **Explicit WebSocket proxying** — the proxy now correctly forwards `Upgrade`
+  and `Connection` headers, with `FlushInterval = -1` for streaming. WebSocket
+  and SSE connections work out of the box without any extra configuration.
+- **Gzip compression** — set `gzip = true` per route to compress responses.
+  Respects `Accept-Encoding`, strips `Content-Length` correctly.
+- **Per-route rate limiting** — `[routes.rate_limit]` now works independently
+  per route instead of sharing the global limiter.
+- **Per-route body size limit** — set `max_body_size` (bytes) per route,
+  overriding the global default for that route.
+- **Per-route timeouts** — set `timeout` (seconds) per route for
+  `ResponseHeaderTimeout`, useful for slow backends like ML inference endpoints.
+- **Custom response headers** — set `[routes.headers]` to inject arbitrary
+  response headers (CORS, CSP, cache-control, etc.) per route.
+- **www redirect** — set `www_redirect = "strip"` to redirect `www.` to the
+  bare domain, or `"add"` to do the reverse. 301 redirect, automatic.
+- **`onyx import nginx`** — new CLI command. Pass a file or directory
+  (`/etc/nginx/sites-available/`) and Onyx parses server blocks, proxy_pass
+  targets, location rules, headers, body size limits, and gzip settings,
+  converting them to Onyx routes automatically.
+- **nginx Import UI** — "Import nginx" button in the Routes view. Paste a
+  server block config, preview what will be imported, confirm.
+- **Route Edit Modal** — click the edit button on any route in the dashboard
+  to update all settings (target, HTTPS, gzip, paths, headers, static root,
+  timeouts) without deleting and re-adding the route.
+- **Docker support** — `Dockerfile` (multi-stage, `FROM scratch` final image)
+  and `docker-compose.yml` example added to the repository.
+
+### Dashboard
+
+- Routes table now shows feature badges per route (HTTPS, Gzip, path count,
+  www redirect mode, static directory).
+- Add Route form has an expandable Advanced section covering all new fields.
+- Edit modal for full in-place route editing.
+- nginx Import modal with paste-and-preview flow.
+
+### Internal
+
+- `internal/nginx/` — new package with a from-scratch nginx config tokenizer
+  and parser. No external dependencies.
+- `internal/proxy/router.go` — fully rewritten. Handler chain is now built
+  per-route and composed of: www redirect → body limit → rate limit → gzip →
+  response headers → path router → static files / proxy.
+- `internal/database/database.go` — 9 new columns added via safe `ALTER TABLE`
+  migrations. Paths and response headers stored as JSON.
+- `internal/config/config.go` — `RouteConfig` extended with all new fields.
+
+---
+
 ## [v0.2.0] — 2026-03-29
 
 ### Added
