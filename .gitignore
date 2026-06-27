@@ -14,3 +14,4 @@ secret*
 *.db
 *.sqlite
 *.sqlite3
+!gpg.key
