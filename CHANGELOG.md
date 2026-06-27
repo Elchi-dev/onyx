@@ -9,6 +9,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/) · Versioning: [SemVer](
 
 ---
 
+## [v0.3.2] — 2026-03-30
+
+---
+
 ## [v0.3.1] — 2026-03-30
 
 ### Fixed
